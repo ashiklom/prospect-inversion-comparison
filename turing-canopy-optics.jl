@@ -11,36 +11,20 @@ using LinearAlgebra
 
 # See Turing documentation: https://turing.ml/dev/docs/using-turing/guide
 
-# Basic test of CanopyOptics itself
-opti = createLeafOpticalStruct((400.0:1:2500) * u"nm")
-leaf = LeafProspectProProperties{Float64}(Ccab = 30.0)
-T,R = prospect(leaf, opti)
-
-plot(R; label = "Reflectance")
-plot!(1 .- T; label = "Transmittance")
-
-const opti_c = createLeafOpticalStruct((400.0:1:2500) * u"nm")
-function prospect4(N, Cab, Cw, Cm)
-    leaf = LeafProspectProProperties{Float64}(N=N, Ccab=Cab, Cw=Cw, Cm=Cm)
-    T,R = prospect(leaf, opti_c)
-    R
-end
-
-# Need this for ForwardAD for some reason...
-function prospect4(
-    N::ForwardDiff.Dual,
-    Cab::ForwardDiff.Dual,
-    Cw::ForwardDiff.Dual,
-    Cm::ForwardDiff.Dual,
-)
-    prospect4(N.value, Cab.value, Cw.value, Cm.value)
-end
-
 # Simulate an observation
-const obs = prospect4(1.4, 40, 0.01, 0.01)
+const opti_c = createLeafOpticalStruct((400.0:1:2500) * u"nm")
+const leaf_c = LeafProspectProProperties{Float64}(N=1.4, Ccab = 40, Cw = 0.01, Cm = 0.01)
+const _, obs = prospect(leaf_c, opti_c)
 plot(obs)
 
-@model fitprospect(obs) = begin
+# Try writing prospect4 as a separate project
+function prospect4(N::T, Cab::T, Cw::T, Cm::T) where {T}
+    leaf = LeafProspectProProperties{T}(N=N, Ccab=Cab, Cw=Cw, Cm=Cm)
+    _,R = prospect(leaf, opti_c)
+    return R
+end
+
+@model function fitprospect(obs, ::Type{T} = Float64) where {T}
     # Priors
     N ~ Uniform(1.1, 3)
     Cab ~ Uniform(10, 100)
@@ -48,25 +32,20 @@ plot(obs)
     Cm ~ Uniform(0.001, 0.02)
     resid ~ InverseGamma(1, 0.2)
     mod = prospect4(N, Cab, Cw, Cm)
-    for i in 1:length(obs)
+    for i in eachindex(obs)
         obs[i] ~ Normal(mod[i], resid)
     end
 end
 
-# Very fast, but extremely inefficient. Algorithm may not be adaptive-enough?
-chain = sample(fitprospect(obs), MH(), 5000)
-plot(chain)
-
-# Very efficient sampling, but very slow. Need to figure out how to speed it
-# up. Might be related to automatic differentiation and/or types.
-chain2 = sample(fitprospect(obs), NUTS(), 100)
-plot(chain2)
+# Works, but somewhat slow. 5000 iterations took 659.27 seconds (~11 minutes).
+# 500 steps takes ~35 seconds.
+chain_f = sample(fitprospect(obs), NUTS(), 500)
 
 # Both of these work. MLE produces an estimate much closer to the truth.
 tmap = optimize(fitprospect(obs), MAP())
 tmle = optimize(fitprospect(obs), MLE())
 
-@model fitprospect_mv(obs) = begin
+@model function fitprospect_mv(obs, ::Type{T} = Float64) where {T}
     # Priors
     N ~ Uniform(1.1, 3)
     Cab ~ Uniform(10, 100)
@@ -78,12 +57,13 @@ tmle = optimize(fitprospect(obs), MLE())
 end
 
 # This works a tiny bit faster than univariate version, but is still slow
-chain_mv = sample(fitprospect_mv(obs), NUTS(), 100)
+# 500 steps takes 39.33 seconds
+chain_mv = sample(fitprospect_mv(obs), NUTS(), 500)
 plot(chain_mv)
 
-# This hangs indefinitely...
 using DynamicHMC
-chain_dhmc = sample(fitprospect_mv(obs), DynamicNUTS(), 100)
+# Startup takes a while...but then, sampling takes ~37 seconds 
+chain_dhmc = sample(fitprospect_mv(obs), DynamicNUTS(), 500)
 plot(chain_dhmc)
 
 # Trying with a Normal-InverseWishart prior
@@ -107,7 +87,7 @@ chain_mv2 = sample(fitprospect_mv2(obs), NUTS(), 100)
 plot(chain_mv)
 
 # Trying Gibbs sampling --- NUTS for PROSPECT, conjugate prior for residual
-function cond_resid(c)
+#= function cond_resid(c)
     ν = 1 + length(obs)
     mod = prospect4(c.N, c.Cab, c.Cw, c.Cm)
     s = obs - mod
@@ -125,4 +105,4 @@ chain_mv3 = sample(
         GibbsConditional(:resid, cond_resid)
     ),
     100
-)
+) =#
