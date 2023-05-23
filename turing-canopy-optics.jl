@@ -34,14 +34,23 @@ end
 function my_fit_prospect(n)
     sample(fitprospect(obs), NUTS(), n)
 end
-
 my_fit_prospect(10) # Precompile
-my_fit_prospect(500) # 13-17 seconds
-my_fit_prospect(2500) # 58 seconds
+my_fit_prospect(500) # 13-25 seconds
+my_fit_prospect(5000) # 157.65 seconds
+
+using DynamicHMC
+function dhmc_prospect(n)
+    sample(fitprospect(obs), DynamicNUTS(), n)
+end
+
+dhmc_prospect(10) # Precompile
+dhmc_prospect(500) # 62.57 seconds (but a lot of that was before first step)
+dhmc_prospect(5000) # 201.94 seconds
 
 using Profile, PProf
 @profile my_fit_prospect(10)
 @profile my_fit_prospect(500)
+@profile my_fit_prospect(5000)
 
 function tracker_fit_prospect(n)
     sample(fitprospect(obs), NUTS{Turing.TrackerAD}(), n)
