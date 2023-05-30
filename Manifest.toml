@@ -194,7 +194,7 @@ uuid = "49dc2e85-a5d0-5ad3-a950-438e2897f1b9"
 version = "0.5.1"
 
 [[deps.CanopyOptics]]
-deps = ["CUDA", "DelimitedFiles", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "ForwardDiff", "LazyArtifacts", "LinearAlgebra", "Parameters", "Polynomials", "QuadGK", "SpecialFunctions", "UnicodePlots", "Unitful", "UnitfulEquivalences", "YAML"]
+deps = ["CUDA", "DelimitedFiles", "Distributions", "DocStringExtensions", "FastGaussQuadrature", "ForwardDiff", "Interpolations", "LazyArtifacts", "LinearAlgebra", "Parameters", "Polynomials", "QuadGK", "SpecialFunctions", "UnicodePlots", "Unitful", "UnitfulEquivalences", "YAML"]
 path = "../CanopyOptics.jl"
 uuid = "a18e34a6-5dbe-4f38-a44b-e5141852e7a7"
 version = "0.1.2"
