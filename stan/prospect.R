@@ -27,8 +27,9 @@ data_list <- list(
   kmat = kmat
 )
 
+# Scalar; data calls: ~40 sec
 mod <- cmdstan_model(stanfile)
-fit <- mod$sample(data_list)
+fit <- mod$sample(data_list, chains = 1)
 
 draws <- as_draws_df(fit)
 summarize_draws(draws)

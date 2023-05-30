@@ -20,7 +20,7 @@ functions {
     return trans;
   }
 
-  real gpm(real N, real k, real talf, real t12, real t21) {
+  real gpm(real N, real k, data real talf, data real t12, data real t21) {
     real trans = transfun(k);
     real ralf = 1 - talf;
     real r12 = 1 - t12;
@@ -56,22 +56,20 @@ functions {
     real RN = Ra + Ta * Rsub * t / denomy;
     // Transmittance
     // TN <- Ta * Tsub / denomy
-    // result[1:2101,1] <- RN
-    // result[1:2101,2] <- TN
-    // returnType(double(2101, 2))
     return RN;
   }
 
   vector prospect4(real N, real Cab, real Cw, real Cm,
-                   vector talf, vector t12, vector t21,
-                   matrix kmat) {
+                   data vector talf, data vector t12, data vector t21,
+                   data matrix kmat) {
     matrix[3,1] cc;
+    int nwl = size(talf);
     cc[1,1] = Cab / N;
     cc[2,1] = Cw / N;
     cc[3,1] = Cm / N;
-    vector[2101] k = to_vector(kmat * cc);
-    vector[2101] result;
-    for (i in 1:2101) {
+    vector[nwl] k = to_vector(kmat * cc);
+    vector[nwl] result;
+    for (i in 1:nwl) {
         result[i] = gpm(N, k[i], talf[i], t12[i], t21[i]);
     }
     return result;
@@ -100,6 +98,6 @@ model {
     Cab ~ normal(40, 25);
     Cw ~ normal(0.01, 0.005);
     Cm ~ normal(0.01, 0.005);
-    obs ~ normal(prospect4(N, Cab, Cw, Cm,
-                           talf, t12, t21, kmat), rsd);
+    vector[nwl] mod = prospect4(N, Cab, Cw, Cm, talf, t12, t21, kmat);
+    obs ~ normal(mod, rsd);
 }
