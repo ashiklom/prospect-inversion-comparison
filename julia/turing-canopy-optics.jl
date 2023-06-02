@@ -1,3 +1,6 @@
+import Pkg; Pkg.activate(".")
+using Revise
+
 using CanopyOptics
 using Unitful
 using Turing
@@ -36,6 +39,7 @@ function my_fit_prospect(n)
 end
 my_fit_prospect(10) # Precompile
 my_fit_prospect(500) # 13-25 seconds
+
 my_fit_prospect(5000) # 157.65 seconds
 
 using DynamicHMC

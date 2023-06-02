@@ -9,46 +9,104 @@ using LinearAlgebra
 using SimpleUnPack
 using Unitful
 using Random
-
+using PDMats
+using SparseArrays
 using LogDensityProblems, TransformVariables, TransformedLogDensities
 using LogDensityProblemsAD
+
+using KernelFunctions, Distances
 
 using Profile
 using BenchmarkTools
 
-const opti_c = createLeafOpticalStruct((400.0:1:2500) * u"nm")
+using Arrow
+using DataFrames, DataFramesMeta
+
+using GLMakie
+
+# Load observations
+data_path = "/home/ashiklom/projects/prospect-traits-manuscript/data/ecosis-processed/lopex"
+metadata_path = "$data_path/metadata.arrow"
+spectra_path = "$data_path/spectra.arrow"
+metadata = DataFrame(Arrow.Table(metadata_path))
+spectra = DataFrame(Arrow.Table(spectra_path))
+observation_id = metadata[1, :observation_id]
+spectra_sub = @subset spectra :observation_id .== observation_id :spectral_measurement .== "reflectance"
+spectra_wide = unstack(spectra_sub, :spectra_id, :value)
+const waves = Array{Float64}(spectra_wide[:, :wavelength_nm])
+const obs = Array{Float64}(spectra_wide[:, "lopex_01.001"])
+
+const opti_c = createLeafOpticalStruct(waves * u"nm", method = :interp)
 function prospect4(N::T, Cab::T, Cw::T, Cm::T) where {T}
     leaf = LeafProspectProProperties{T}(N=N, Ccab=Cab, Cw=Cw, Cm=Cm)
     _,R = prospect(leaf, opti_c)
     return R
 end
 
-struct Model{T}
-    observations::T
+mtest = prospect4(1.4, 40.0, 0.01, 0.01)
+ϵ_test = obs - mtest
+lines(waves, ϵ_test)
+
+ϵ_norm = ϵ_test ./ mtest
+lines(waves, ϵ_norm)
+
+ρ = 1 / 10
+k = SqExponentialKernel() ∘ ScaleTransform(ρ)
+Ω = kernelpdmat(k, waves)
+logpdf(MvNormal(Ω), ϵ_norm)
+
+struct Model{T1, T2}
+    waves::T1
+    observations::T2
 end
 
-function (m::Model)(θ)
-    @unpack N, Cab, Cw, Cm, resid = θ
+function (model::Model)(θ)
+    @unpack N, Cab, Cw, Cm, α, β, ρ = θ
     priors = [
         Normal(1.0, 3.0),
         Normal(40, 20),
         Normal(0, 0.1),
-        Uniform(0, 0.1),
-        Uniform(0, 1)
+        Normal(0, 0.1),
+        Exponential(0.1),
+        Exponential(0.1),
+        Exponential(0.1)
     ]
     log_prior = sum(map(logpdf, priors, θ))
     isfinite(log_prior) || return -Inf
-    mod = prospect4(N, Cab, Cw, Cm)
-    dist = MvNormal(mod, resid * I)
-    log_likelihood = logpdf(dist, m.observations)
+    pred = prospect4(N, Cab, Cw, Cm)
+    all(isfinite.(pred)) || return -Inf
+    σ = α .* pred .+ β
+    Δ = (pred .- model.observations) ./ σ
+    K = SqExponentialKernel() ∘ ScaleTransform(ρ)
+    Ω = kernelpdmat(K, model.waves)
+    log_likelihood = logpdf(MvNormal(Ω), Δ)
     log_prior + log_likelihood
 end
 
-const obs = prospect4(1.4, 40.0, 0.01, 0.01)
-m = Model(obs)
-ttest = (N=1.4, Cab=40.0, Cw=0.01, Cm=0.01, resid=0.1)
+MvNormal
+
+m = Model(waves, obs)
+ttest = (N=1.4, Cab=40.0, Cw=0.01, Cm=0.01,
+    α = 0.1, β = 0.1, ρ = 0.7)
 # Check...
 m(ttest)
+
+function mp(n)
+    m = Model(waves, obs)
+    ttest = (N=1.4, Cab=40.0, Cw=0.01, Cm=0.01,
+        α = 0.1, β = 0.1, ρ = 0.7)
+    for _ in 1:n
+        m(ttest)
+    end
+end
+
+@time mp(1)
+Profile.clear()
+@profile mp(100)
+Profile.print(mincount = 1000)
+# Profile.clear()
+
+@benchmark m($ttest)
 
 # Profiling results show that the slowest step is:
 #     bNm1 = b .^ (N-1)  (in prospect.jl)
