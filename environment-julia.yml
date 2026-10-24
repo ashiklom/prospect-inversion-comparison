@@ -1,0 +1,6 @@
+# Julia and Quarto binaries (conda-forge). Julia packages: julia --project=julia -e 'using Pkg; Pkg.instantiate()'
+name: jl
+channels: [conda-forge]
+dependencies:
+  - julia
+  - quarto

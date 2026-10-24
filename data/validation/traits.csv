@@ -1,0 +1,12 @@
+sample_id,project,species,role,Cab,Car,Canth,Cw,Cm,N,Cbrown
+lopex_01,lopex,Acer pseudoplatanus L.,Baseline broadleaf (Acer pseudoplatanus),44.71,9.74,,0.00686,0.0033,,
+an03r0161,angers,Acer pseudoplatanus L.,Highest chlorophyll (Acer pseudoplatanus),106.72,24.22,,0.0147,0.0061,,
+lopex_36,lopex,Phragmites australis (Cav.) Trin. ex Steud.,"Grass, high carotenoids (Phragmites)",98.8,28.35,,0.00758,0.00768,,
+lopex_24,lopex,Iris germanica L.,"Thick monocot, highest water (Iris)",77.53,14.58,,0.04044,0.00824,,
+an03r0271,angers,Osmanthus heterophyllus (G. Don) P.S. Green,"Sclerophyll, highest LMA (Osmanthus)",37.11,9.13,,0.0337,0.0331,,
+lopex_42,lopex,Prunus laurocerasus L.,Evergreen (Prunus laurocerasus),78.87,16.57,,0.01988,0.0137,,
+an03r0273,angers,Hydrangea macrophylla (Thunb.) Ser.,Lowest LMA (Hydrangea),27.28,5.61,,0.018,0.0017,,
+lopex_20,lopex,Glycine max (L.) Merr.,"Senescent, Car > Cab (Glycine max)",1.36,5.15,,0.00592,0.00332,,
+an03r0185,angers,Cornus alba L.,"White/variegated, ~no pigments (Cornus alba)",0.78,0.0,,0.0082,0.0021,,
+an03r0128,angers,Acer pseudoplatanus L.,"Low Cab, highest anthocyanin index in ANGERS (Acer)",9.66,2.93,,0.0076,0.0022,,
+synthetic,synthetic,synthetic,"Simulated PROSPECT-D spectrum, known truth",45.0,9.0,1.5,0.012,0.006,1.6,0.05

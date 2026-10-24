@@ -1,0 +1,18 @@
+{
+  "_comment": "Validation spectra from ashiklom/spectra_db. Reflectance (replicate 1) is fitted; measured transmittance is held out for validation.",
+  "samples": [
+    {"id": "lopex_01",  "project": "lopex",  "role": "Baseline broadleaf (Acer pseudoplatanus)"},
+    {"id": "an03r0161", "project": "angers", "role": "Highest chlorophyll (Acer pseudoplatanus)"},
+    {"id": "lopex_36",  "project": "lopex",  "role": "Grass, high carotenoids (Phragmites)"},
+    {"id": "lopex_24",  "project": "lopex",  "role": "Thick monocot, highest water (Iris)"},
+    {"id": "an03r0271", "project": "angers", "role": "Sclerophyll, highest LMA (Osmanthus)"},
+    {"id": "lopex_42",  "project": "lopex",  "role": "Evergreen (Prunus laurocerasus)"},
+    {"id": "an03r0273", "project": "angers", "role": "Lowest LMA (Hydrangea)"},
+    {"id": "lopex_20",  "project": "lopex",  "role": "Senescent, Car > Cab (Glycine max)"},
+    {"id": "an03r0185", "project": "angers", "role": "White/variegated, ~no pigments (Cornus alba)"},
+    {"id": "an03r0128", "project": "angers", "role": "Low Cab, highest anthocyanin index in ANGERS (Acer)"},
+    {"id": "synthetic", "project": "synthetic", "role": "Simulated PROSPECT-D spectrum, known truth",
+     "seed": 20261024, "noise_sd": 0.005,
+     "truth": {"N": 1.6, "Cab": 45.0, "Car": 9.0, "Canth": 1.5, "Cbrown": 0.05, "Cw": 0.012, "Cm": 0.006}}
+  ]
+}

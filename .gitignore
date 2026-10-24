@@ -1,0 +1,8 @@
+stan/build/
+r/nimble_e1/*.o
+tests/forward/out/
+__pycache__/
+.ipynb_checkpoints/
+site/.quarto/
+site/_freeze/
+*.log

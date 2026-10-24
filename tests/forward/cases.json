@@ -1,0 +1,11 @@
+{
+  "_comment": "Parameter sets for cross-language forward-model verification (PROSPECT-D, full 400-2500 nm grid).",
+  "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"],
+  "cases": [
+    {"name": "typical",    "N": 1.5, "C": [40, 10, 2, 0.1, 0.01, 0.009]},
+    {"name": "thick",      "N": 2.5, "C": [90, 20, 5, 0.5, 0.03, 0.02]},
+    {"name": "thin_pale",  "N": 1.1, "C": [1, 0.1, 0.01, 0.001, 0.002, 0.001]},
+    {"name": "senescent",  "N": 1.8, "C": [2, 6, 0.5, 0.8, 0.006, 0.004]},
+    {"name": "extreme",    "N": 1.5, "C": [400, 100, 30, 3, 0.08, 0.05]}
+  ]
+}

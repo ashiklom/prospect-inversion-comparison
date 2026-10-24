@@ -1,0 +1,13 @@
+{
+  "_comment": "Shared priors for all backends. Constituents: lognormal(meanlog, sdlog). N: normal(mean, sd) truncated to N > lower. sigma: half-normal(scale). Adapted from PEcAnRTM::prospect_bt_prior.",
+  "N": {"dist": "truncnormal", "mean": 1.5, "sd": 1.0, "lower": 1.0},
+  "constituents": {
+    "Cab":    {"dist": "lognormal", "meanlog": 3.6889, "sdlog": 0.9},
+    "Car":    {"dist": "lognormal", "meanlog": 2.3026, "sdlog": 1.1},
+    "Canth":  {"dist": "lognormal", "meanlog": 0.6931, "sdlog": 1.5},
+    "Cbrown": {"dist": "lognormal", "meanlog": -2.3026, "sdlog": 1.5},
+    "Cw":     {"dist": "lognormal", "meanlog": -4.6052, "sdlog": 1.0},
+    "Cm":     {"dist": "lognormal", "meanlog": -4.7105, "sdlog": 1.0}
+  },
+  "sigma": {"dist": "halfnormal", "scale": 0.05}
+}

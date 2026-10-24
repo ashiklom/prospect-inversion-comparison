@@ -1,0 +1,22 @@
+{
+  "prospectd": {
+    "description": "PROSPECT-D (Feret et al. 2017)",
+    "coefficients": "data/coefficients/prospectd.csv",
+    "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"]
+  },
+  "prospect5b": {
+    "description": "PROSPECT-5B (Feret et al. 2008), with brown pigments",
+    "coefficients": "data/coefficients/prospect5.csv",
+    "constituents": ["Cab", "Car", "Cbrown", "Cw", "Cm"]
+  },
+  "prospect5": {
+    "description": "PROSPECT-5 (Feret et al. 2008)",
+    "coefficients": "data/coefficients/prospect5.csv",
+    "constituents": ["Cab", "Car", "Cw", "Cm"]
+  },
+  "prospect4": {
+    "description": "PROSPECT-4 (Feret et al. 2008)",
+    "coefficients": "data/coefficients/prospect4.csv",
+    "constituents": ["Cab", "Cw", "Cm"]
+  }
+}

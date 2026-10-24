@@ -1,0 +1,31 @@
+# Conda (micromamba) environment for the R backends (BayesianTools, NIMBLE, Stan).
+# BayesianTools is not on conda-forge: install it from source
+#   git clone https://github.com/florianhartig/BayesianTools && R CMD INSTALL BayesianTools/BayesianTools
+name: rstan
+channels: [conda-forge]
+dependencies:
+  - r-base=4.5
+  - r-nimble
+  - r-cmdstanr
+  - cmdstan
+  - r-posterior
+  - r-jsonlite
+  - r-data.table
+  - r-expint
+  - gsl
+  - c-compiler
+  - cxx-compiler
+  - make
+  # BayesianTools dependencies
+  - r-coda
+  - r-emulator
+  - r-mvtnorm
+  - r-tmvtnorm
+  - r-idpmisc
+  - r-ellipse
+  - r-numderiv
+  - r-msm
+  - r-dharma
+  - r-gap
+  - r-bridgesampling
+  - r-rcpp

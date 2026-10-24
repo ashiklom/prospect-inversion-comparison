@@ -1,0 +1,41 @@
+{
+  "seed": 20261024,
+  "stan": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "adapt_delta": 0.9
+  },
+  "pymc": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "target_accept": 0.9
+  },
+  "turing": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "target_accept": 0.9
+  },
+  "nimble": {
+    "chains": 4,
+    "warmup": 5000,
+    "draws": 5000,
+    "thin": 5,
+    "sampler": "AF_slice"
+  },
+  "bayestools": {
+    "chains": 4,
+    "iterations": 60000,
+    "burnin": 30000,
+    "thin": 15,
+    "sampler": "DEzs"
+  },
+  "init": {
+    "_comment": "All backends: N = 1.5, C_j = exp(meanlog_j + U(-jitter, jitter)), sigma = 0.01; one seed per chain.",
+    "N": 1.5,
+    "sigma": 0.01,
+    "jitter": 0.5
+  }
+}
