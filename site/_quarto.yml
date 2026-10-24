@@ -1,0 +1,47 @@
+project:
+  type: website
+  output-dir: ../docs
+  execute-dir: project
+  resources:
+    - plotly.min.js
+
+website:
+  title: "PROSPECT inversions"
+  navbar:
+    left:
+      - href: index.qmd
+        text: Overview
+      - href: data.qmd
+        text: Data
+      - href: methods.qmd
+        text: Methods
+      - href: verification.qmd
+        text: Forward model
+      - href: traits.qmd
+        text: Traits
+      - href: spectra.qmd
+        text: Spectra & transmittance
+      - href: backends.qmd
+        text: Backends
+      - href: error-models.qmd
+        text: Error models
+    right:
+      - icon: github
+        href: https://github.com/ashiklom/prospect-inversion-comparison
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    include-in-header:
+      text: <script src="plotly.min.js"></script>
+    toc: true
+    code-fold: true
+    code-summary: "Code"
+    fig-responsive: true
+    mainfont: 'system-ui, -apple-system, "Segoe UI", sans-serif'
+
+execute:
+  echo: false
+  warning: false
+  freeze: false

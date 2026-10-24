@@ -1,0 +1,105 @@
+---
+title: "Trait retrieval"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+P = read("params.csv")
+iid = P[P["errmodel"] == "iid"].copy()
+iid["label"] = iid["sample_id"].map(sample_label)
+MEAS = ["Cab", "Car", "Cw", "Cm"]
+```
+
+Every backend fitted the same PROSPECT-D model (iid normal residuals) to
+reflectance only. Here the posteriors of the four constituents with measured
+values are compared with those measurements. Points are posterior medians;
+bars are central 90% credible intervals.
+
+```{python}
+#| label: fig-traits
+#| fig-cap: "Posterior median and 90% credible interval vs. measured value, by backend (color and marker). The gray line is 1:1. Both axes are logarithmic. The white/variegated Cornus leaf, measured at Car = 0, cannot be shown on the log axis but is included in the tables. Click legend entries to hide backends."
+fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.1, vertical_spacing=0.14,
+                    subplot_titles=[f"{TRAIT_NAME[p]} ({TRAIT_UNITS[p]})" for p in MEAS])
+offsets = dict(zip(BACKENDS, np.linspace(-0.03, 0.03, len(BACKENDS))))
+for i, p in enumerate(MEAS):
+    r, c = i // 2 + 1, i % 2 + 1
+    d0 = iid[(iid["param"] == p) & (iid["measured"] > 0)]
+    lo, hi = d0[["measured", "q05"]].min().min(), d0[["measured", "q95"]].max().max()
+    fig.add_trace(go.Scatter(x=[lo / 1.5, hi * 1.5], y=[lo / 1.5, hi * 1.5], mode="lines",
+                             line=dict(color=AXIS, width=1), hoverinfo="skip", showlegend=False), r, c)
+    for b in BACKENDS:
+        d = d0[d0["backend"] == b]
+        if d.empty:
+            continue
+        x = d["measured"] * 10 ** offsets[b]
+        fig.add_trace(go.Scatter(
+            x=x, y=d["q50"], mode="markers", name=LABEL[b], legendgroup=b, showlegend=(i == 0),
+            marker=dict(color=COLOR[b], symbol=SYMBOL[b], size=8, line=dict(color=SURFACE, width=1)),
+            error_y=dict(type="data", symmetric=False, array=d["q95"] - d["q50"],
+                         arrayminus=d["q50"] - d["q05"], color=COLOR[b], thickness=1.5, width=0),
+            customdata=np.c_[d["label"], d["measured"], d["q05"], d["q95"]],
+            hovertemplate=("%{customdata[0]}<br>measured %{customdata[1]:.3g}<br>median %{y:.3g}"
+                           "<br>90% CI %{customdata[2]:.3g} – %{customdata[3]:.3g}<extra>" + LABEL[b] + "</extra>")),
+            r, c)
+    fig.update_xaxes(type="log", title_text="measured", row=r, col=c)
+    fig.update_yaxes(type="log", title_text="posterior", row=r, col=c)
+fig.update_layout(height=760, legend=dict(orientation="h", y=1.08, x=0))
+show(fig)
+```
+
+## Accuracy and calibration
+
+```{python}
+#| label: tbl-trait-skill
+#| tbl-cap: "Retrieval skill by backend and trait over all samples with a measured value, synthetic leaf included. Relative bias is the median of (posterior median − measured) / measured, over samples with measured > 0. Coverage counts how many measured values fall inside the 90% credible interval."
+rows = []
+for b in BACKENDS:
+    for p in MEAS:
+        d = iid[(iid["backend"] == b) & (iid["param"] == p) & iid["measured"].notna()]
+        if d.empty:
+            continue
+        pos = d[d["measured"] > 0]
+        rows.append({"Backend": LABEL[b], "Trait": p, "n": len(d),
+                     "RMSE": np.sqrt(np.mean((d["q50"] - d["measured"])**2)),
+                     "Median rel. bias": np.median((pos["q50"] - pos["measured"]) / pos["measured"]),
+                     "Spearman ρ": d[["q50", "measured"]].corr("spearman").iloc[0, 1],
+                     "90% coverage": f"{int(d['covered90'].sum())}/{len(d)}",
+                     "Median 90% CI width (rel.)": np.median((d["q95"] - d["q05"]) / d["q50"])})
+skill = pd.DataFrame(rows)
+show_table(fmt_table(skill, 3))
+```
+
+```{python}
+cov = iid[iid["param"].isin(MEAS) & iid["measured"].notna() & (iid["sample_id"] != "synthetic")]
+cov_rate = cov["covered90"].mean()
+syn = iid[(iid["sample_id"] == "synthetic") & iid["measured"].notna()]
+syn_cov = syn["covered90"].mean()
+```
+
+::: {.callout-important}
+## The iid error model gives over-confident trait posteriors
+
+On the synthetic spectrum, where the iid model is the true data-generating
+process, the 90% intervals cover the truth
+`{python} f"{100*syn_cov:.0f}%"` of the time, across all backends and
+parameters. On the real leaves only `{python} f"{100*cov_rate:.0f}%"` of
+measured Cab/Car/EWT/LMA values fall inside the 90% intervals. Part of that is
+measurement error in the reference traits and PROSPECT's structural error. But
+the intervals are also far too narrow: they are typically a few percent wide,
+because the iid likelihood treats 2000+ strongly autocorrelated residuals as
+independent pieces of information. See [Error models](error-models.qmd).
+:::
+
+## All posterior summaries
+
+```{python}
+#| label: tbl-params
+#| tbl-cap: "Posterior summaries for every backend, sample, and parameter (iid error model, exact E₁)."
+cols = ["backend", "sample_id", "param", "q05", "q50", "q95", "mean", "sd", "rhat", "ess_bulk", "measured", "covered90"]
+t = iid[cols].copy()
+t["backend"] = t["backend"].map(LABEL)
+show_table(fmt_table(t, 4))
+```

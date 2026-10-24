@@ -1,0 +1,118 @@
+---
+title: "Bayesian PROSPECT-D inversion in five probabilistic programming toolchains"
+---
+
+```{python}
+import numpy as np, pandas as pd
+from IPython.display import HTML, display
+from _lib import *
+F, P, V = read("fits.csv"), read("params.csv"), read("validation.csv")
+fc = read("forward_check.csv")
+fi = F[F["errmodel"] == "iid"]
+present = [b for b in BACKENDS if b in set(fi["backend"])]
+n_spec = fi["sample_id"].nunique()
+```
+
+This site compares **Bayesian inversion of the PROSPECT-D leaf radiative
+transfer model** in five toolchains:
+
+* **R + BayesianTools** (DEzs, base-R PROSPECT)
+* **NIMBLE** (slice sampling, PROSPECT as a `nimbleFunction`)
+* **Stan** (NUTS via CmdStan)
+* **Julia / Turing.jl** (NUTS, ForwardDiff)
+* **Python / PyMC** (NUTS, PyTensor)
+
+Each toolchain has its own PROSPECT implementation, verified against a common
+reference to machine precision. All five fit the same model to the same
+leaves, so the comparison isolates the toolchain. The fits are checked against
+measured leaf traits and against **held-out leaf transmittance**.
+
+```{python}
+ok = bool(fc[~fc["implementation"].str.startswith("reference")]["pass"].all())
+eff = fi.groupby("backend")["min_ess_bulk_per_s"].median()
+best = eff.idxmax() if len(eff) else None
+cov = P[(P["errmodel"] == "iid") & P["param"].isin(["Cab", "Car", "Cw", "Cm"]) & P["measured"].notna()
+        & (P["sample_id"] != "synthetic")]["covered90"].mean()
+tiles = [
+    ("Spectra fitted", f"{n_spec}", "10 LOPEX/ANGERS leaves + 1 synthetic"),
+    ("Backends", f"{len(present)}", "same model, priors, data, inits"),
+    ("Forward models agree", "✓ ≤ 1e-15" if ok else "✗ check", "vs. NumPy reference, both E₁ modes"),
+    ("Most efficient", LABEL.get(best, "–"), f"median {eff.max():.1f} worst-param ESS/s" if best else ""),
+    ("Measured traits inside 90% CI", f"{100*cov:.0f}%", "iid error model → over-confident"),
+]
+html = '<div class="stat-row">' + "".join(
+    f'<div class="stat"><div class="label">{a}</div><div class="value">{b}</div><div class="sub">{c}</div></div>'
+    for a, b, c in tiles) + "</div>"
+display(HTML(html))
+```
+
+## Headline comparison
+
+```{python}
+#| label: tbl-headline
+#| tbl-cap: "Per backend, medians across spectra (iid error model, exact E₁). Trait RMSE is relative: median |posterior median − measured| / measured over Cab, Car, EWT and LMA. T is held-out transmittance."
+rows = []
+for b in present:
+    f = fi[fi["backend"] == b]
+    p = P[(P["backend"] == b) & (P["errmodel"] == "iid") & P["param"].isin(["Cab", "Car", "Cw", "Cm"])
+          & (P["measured"] > 0) & (P["sample_id"] != "synthetic")]
+    v = V[(V["backend"] == b) & (V["errmodel"] == "iid") & (V["region"] == "All") & (V["sample_id"] != "synthetic")]
+    rows.append({
+        "Backend": LABEL[b],
+        "Sampler": {"stan": "NUTS", "pymc": "NUTS", "turing": "NUTS", "nimble": "AF slice", "bayestools": "DEzs"}[b],
+        "Sampling time (s)": f["time_sampling_s"].median(),
+        "Setup / compile (s)": f["time_setup_s"].median(),
+        "Worst-param ESS/s": f["min_ess_bulk_per_s"].median(),
+        "Max R̂": f["max_rhat"].max(),
+        "Median rel. trait error": np.median(np.abs(p["q50"] - p["measured"]) / p["measured"]),
+        "Trait 90% coverage": p["covered90"].mean(),
+        "T RMSE": v[v["quantity"] == "T"]["rmse"].median(),
+        "T 90% coverage": v[v["quantity"] == "T"]["coverage90"].median(),
+    })
+show_table(fmt_table(pd.DataFrame(rows), 3))
+```
+
+## Main findings
+
+```{python}
+t = fi.groupby("backend")["time_sampling_s"].median()
+rh = fi["max_rhat"].max()
+```
+
+1. **All five toolchains recover the same posterior.** Medians agree within
+   Monte Carlo error on every spectrum and parameter. On the synthetic leaf all
+   recover the true parameters. Worst $\hat R$ over all iid fits:
+   `{python} f"{rh:.3f}"`. See [Backends](backends.qmd).
+2. **Efficiency differs more than accuracy.** Gradient-based NUTS (PyMC,
+   Stan, Turing) and gradient-free samplers (NIMBLE's AF-slice,
+   BayesianTools' DEzs) all converge on this 7-parameter problem, but ESS per
+   second varies by roughly an order of magnitude. Compile and JIT overheads
+   (Stan, NIMBLE, Julia) also matter for single-leaf workflows.
+3. **Exact vs. approximate $E_1$ hardly matters.** The Swamee–Ohija closed form
+   changes R and T by ≲ 8×10⁻⁴ and shifts posteriors by a fraction of a
+   posterior SD. Its τ < 0 failure (k > 11.6) does occur in strong water bands,
+   so it needs the usual clamp at 0. See [Forward model](verification.qmd).
+4. **The iid error model is the weak link, not the sampler.** Residuals are
+   smooth, autocorrelated over tens of nm, much larger than replicate noise, and
+   shared across leaves. As a result trait intervals are over-confident and
+   held-out transmittance is poorly covered. A heteroskedastic AR(1) likelihood
+   (exact, $O(n)$) helps, and a library-learned discrepancy model is the
+   recommended next step. See [Error models](error-models.qmd).
+5. **A bug fix along the way.** The PROSPECT-D `t21` in `rrtm` used the wrong
+   refractive index; fixed in [ashiklom/rrtm#10](https://github.com/ashiklom/rrtm/pull/10).
+
+## Reproducing
+
+```bash
+make data       # coefficient tables + validation spectra (needs ../RTM.jl, ../spectra_db)
+make forward    # cross-language forward-model verification
+make -j4 fits   # 5 backends x 11 spectra (+ Stan approx-E1 and hetero-AR(1) runs)
+make summary    # results/summary/*.csv
+make site       # render this site into docs/
+```
+
+Toolchain setup is in the repository README (`environment-r.yml`,
+`environment-julia.yml`, `python/requirements.txt`, `julia/Project.toml`). The
+earlier exploratory scripts are preserved on the
+[`legacy-experiments`](https://github.com/ashiklom/prospect-inversion-comparison/tree/legacy-experiments)
+branch.

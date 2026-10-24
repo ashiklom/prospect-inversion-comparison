@@ -38,9 +38,10 @@ def e1_approx(x):
     (clamped to 0 in `transmissivity`).
     """
     x = np.asarray(x, dtype=float)
-    a = np.log((0.56146 / x + 0.65) * (1 + x))
-    b = x**4 * np.exp(7.7 * x) * (2 + x) ** 3.7
-    return (a**-7.7 + b) ** -0.13
+    with np.errstate(over="ignore"):  # b -> inf (E1 -> 0) for x > ~90
+        a = np.log((0.56146 / x + 0.65) * (1 + x))
+        b = x**4 * np.exp(7.7 * x) * (2 + x) ** 3.7
+        return (a**-7.7 + b) ** -0.13
 
 
 E1 = {"exact": e1_exact, "approx": e1_approx}

@@ -31,9 +31,10 @@ class E1(Op):
     def infer_shape(self, fgraph, node, shapes):
         return shapes
 
-    def grad(self, inputs, output_grads):
+    def pullback(self, inputs, outputs, cotangents):
+        # dE1/dx = -exp(-x) / x
         (x,) = inputs
-        (gz,) = output_grads
+        (gz,) = cotangents
         return [gz * (-pt.exp(-x) / x)]
 
 

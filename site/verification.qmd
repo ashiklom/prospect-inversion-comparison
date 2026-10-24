@@ -1,0 +1,130 @@
+---
+title: "Forward model verification"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+from prospect_np import e1_exact, e1_approx
+fc = read("forward_check.csv")
+```
+
+Every backend has its own PROSPECT-D implementation, written in its own
+language or DSL. Before any fitting, `make forward` evaluates every
+implementation on five parameter sets over the full 400–2500 nm grid, in both
+$E_1$ modes, and compares the results with the NumPy reference
+(`tests/forward/`). The cases run from a pale, thin leaf to an unrealistically
+pigment-rich one. The NumPy reference is also checked against an independent
+implementation, the [`prosail`](https://github.com/jgomezdans/prosail) Python
+package.
+
+```{python}
+#| label: tbl-forward
+#| tbl-cap: "Maximum absolute difference from the NumPy reference across all wavelengths and the five test cases."
+impl = fc[~fc["implementation"].str.startswith("reference")]
+t = (impl.groupby(["implementation", "e1"])
+         .agg(max_dR=("max_abs_dR", "max"), max_dT=("max_abs_dT", "max"),
+              tolerance=("tolerance", "first"), all_pass=("pass", "all"))
+         .reset_index())
+names = {"r": "base R (BayesianTools)", "nimble": "NIMBLE", "stan": "Stan", "pytensor": "PyTensor (PyMC)",
+         "julia": "Julia (Turing)", "prosail": "prosail (independent)"}
+t["implementation"] = t["implementation"].map(names)
+t["status"] = np.where(t["all_pass"], "✓ pass", "✗ FAIL")
+show_table(fmt_table(t.drop(columns="all_pass").rename(columns={
+    "implementation": "Implementation", "e1": "E₁ mode", "max_dR": "max |ΔR|", "max_dT": "max |ΔT|",
+    "tolerance": "Tolerance", "status": "Status"}), 3))
+```
+
+All five backend implementations agree with the reference to within a few
+units of machine precision ($\lesssim 10^{-15}$). The reference agrees with
+`prosail` to about $5\times10^{-11}$, which is the precision of `prosail`'s
+stored coefficient tables.
+
+::: {.callout-note}
+## A PROSPECT-D bug in `rrtm`
+
+Building this comparison turned up a bug in
+[`rrtm`](https://github.com/ashiklom/rrtm). Its PROSPECT-D internal interface
+transmissivity was computed as `pd_t21 <- p45_t12 / refractive_pd^2`, which
+mixes in the PROSPECT-4/5 refractive index. That biased PROSPECT-D reflectance
+by up to about 9×10⁻⁴ and transmittance by up to about 2×10⁻³. It is fixed in
+[ashiklom/rrtm#10](https://github.com/ashiklom/rrtm/pull/10); with the fix,
+`rrtm::prospectd` (exact $E_1$) matches the reference here to about 5×10⁻¹¹.
+:::
+
+## Exact vs. approximate $E_1$
+
+The Swamee–Ohija approximation is cheap and differentiable in every DSL. How
+much does it change the model?
+
+```{python}
+#| label: fig-tau
+#| fig-cap: "Layer transmissivity τ(k) with exact and approximate E₁ (top), and their difference (bottom). Where the approximation drives τ below zero, it is clamped to 0."
+k = np.logspace(-3, np.log10(40), 600)
+te = (1 - k) * np.exp(-k) + k**2 * e1_exact(k)
+ta = (1 - k) * np.exp(-k) + k**2 * e1_approx(k)
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,
+                    row_heights=[0.6, 0.4])
+fig.add_trace(go.Scatter(x=k, y=te, name="exact E₁", line=dict(color=COLOR["stan"], width=2),
+                         hovertemplate="k=%{x:.3g}<br>τ=%{y:.3g}<extra>exact</extra>"), 1, 1)
+fig.add_trace(go.Scatter(x=k, y=np.maximum(ta, 0), name="approx. E₁ (clamped at 0)",
+                         line=dict(color=COLOR["pymc"], width=2),
+                         hovertemplate="k=%{x:.3g}<br>τ=%{y:.3g}<extra>approx</extra>"), 1, 1)
+fig.add_trace(go.Scatter(x=k, y=ta - te, name="approx − exact (unclamped)", showlegend=False,
+                         line=dict(color=INK2, width=2),
+                         hovertemplate="k=%{x:.3g}<br>Δτ=%{y:.2e}<extra></extra>"), 2, 1)
+kneg = k[ta < 0].min()
+fig.add_vline(x=kneg, line=dict(color=MUTED, width=1))
+fig.add_annotation(x=np.log10(kneg), y=0.9, xref="x", yref="y domain", text=f"  approx. τ < 0 for k > {kneg:.1f}",
+                   showarrow=False, xanchor="left", font=dict(color=INK2))
+fig.update_xaxes(type="log", title_text="absorption coefficient k", row=2, col=1)
+fig.update_yaxes(title_text="τ", type="log", range=[-6, 0.05], row=1, col=1)
+fig.update_yaxes(title_text="Δτ", row=2, col=1)
+fig.update_layout(height=520, legend=dict(orientation="h", y=1.08, x=0))
+show(fig)
+```
+
+The approximation's largest error in τ is about 3×10⁻³, near k ≈ 1. It
+yields **τ < 0 for k > `{python} f"{kneg:.1f}"`**. At such absorption, exact τ
+is already below 10⁻⁵, so clamping at 0 gives the same reflectance and
+transmittance in practice. Real leaves do reach that regime: a thick, wet,
+pigment-rich leaf (Cab 100 µg cm⁻², Cw 0.05 cm, N = 1) has k ≈ 15 at the
+1940 nm water band. So the clamp, which rrtm and every implementation here
+apply, is required rather than optional.
+
+```{python}
+#| label: fig-approx
+#| fig-cap: "Effect of the E₁ approximation on PROSPECT-D reflectance and transmittance (approx − exact) for the five test cases. Choose a case from the menu."
+ax = pd.read_csv(ROOT / "results/summary/e1_approx_vs_exact.csv.gz")
+cases = list(dict.fromkeys(ax["case"]))
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
+for i, c in enumerate(cases):
+    d = ax[ax["case"] == c]
+    vis = i == 0
+    fig.add_trace(go.Scatter(x=d["wavelength"], y=d["R_approx"] - d["R_exact"], name="ΔR",
+                             line=dict(color=COLOR["stan"], width=2), visible=vis,
+                             hovertemplate="%{x} nm<br>ΔR=%{y:.2e}<extra></extra>"), 1, 1)
+    fig.add_trace(go.Scatter(x=d["wavelength"], y=d["T_approx"] - d["T_exact"], name="ΔT",
+                             line=dict(color=COLOR["pymc"], width=2), visible=vis,
+                             hovertemplate="%{x} nm<br>ΔT=%{y:.2e}<extra></extra>"), 2, 1)
+buttons = [dict(label=c, method="update",
+                args=[{"visible": [j // 2 == i for j in range(2 * len(cases))]}]) for i, c in enumerate(cases)]
+fig.update_layout(updatemenus=[dict(buttons=buttons, x=0, y=1.15, xanchor="left", showactive=True)],
+                  height=480, showlegend=False)
+fig.update_yaxes(title_text="ΔR (approx − exact)", row=1, col=1)
+fig.update_yaxes(title_text="ΔT (approx − exact)", row=2, col=1)
+fig.update_xaxes(title_text="wavelength (nm)", row=2, col=1)
+show(fig)
+```
+
+```{python}
+apx = fc[fc["e1"] == "approx-exact"][["case", "max_abs_dR", "max_abs_dT"]]
+show_table(fmt_table(apx.rename(columns={"case": "Case", "max_abs_dR": "max |ΔR|", "max_abs_dT": "max |ΔT|"})))
+```
+
+The approximation shifts R and T by at most a few ×10⁻⁴. That is an order of
+magnitude below the residual SD of a PROSPECT fit to a real leaf (≈ 0.01; see
+[Traits](traits.qmd)). The [Backends](backends.qmd) page compares Stan fits with
+exact and approximate $E_1$ on every spectrum.

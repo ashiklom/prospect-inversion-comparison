@@ -30,7 +30,10 @@ dat <- list(
 inits <- make_inits(inp, cfg$chains, seed)
 if (args$errmodel != "iid") {
   # extra error-model parameters start at neutral values
-  inits <- lapply(inits, function(x) c(x, list(sigma0 = 0.005, sigma1 = 0.01, phi = 0.5)))
+  inits <- lapply(inits, function(x) {
+    x$sigma <- NULL
+    c(x, list(sigma0 = 0.005, sigma1 = 0.01, phi = 0.5))
+  })
 }
 
 t_sampling <- elapsed(

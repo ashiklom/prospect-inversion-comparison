@@ -1,0 +1,207 @@
+---
+title: "Backend comparison"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+F = read("fits.csv")
+P = read("params.csv")
+fi = F[F["errmodel"] == "iid"].copy()
+present = [b for b in BACKENDS if b in set(fi["backend"])]
+CORE = ["N", "Cab", "Car", "Canth", "Cbrown", "Cw", "Cm", "sigma"]
+```
+
+All five backends sample **the same posterior**: same forward model (verified
+to ~1e-15), same priors, same likelihood, same data and initial values. Any
+difference between them is Monte Carlo error or a sampling failure. This page
+covers (1) whether they agree and (2) how efficiently they get there.
+
+## Efficiency
+
+```{python}
+#| label: tbl-eff
+#| tbl-cap: "Per-backend summary across all spectra (iid model). Times are wall-clock seconds with chains run sequentially on one core. ESS is ArviZ bulk ESS. 'Worst-parameter ESS/s' uses each fit's least-efficient parameter."
+g = fi.groupby("backend")
+summ = pd.DataFrame({
+    "fits": g.size(),
+    "median sampling time (s)": g["time_sampling_s"].median(),
+    "median setup/compile time (s)": g["time_setup_s"].median(),
+    "median worst-parameter ESS": g["min_ess_bulk"].median(),
+    "median worst-parameter ESS/s": g["min_ess_bulk_per_s"].median(),
+    "median ESS/s (median over parameters)": g["median_ess_bulk_per_s"].median(),
+    "max R̂": g["max_rhat"].max(),
+    "fits with R̂ > 1.01": g["max_rhat"].apply(lambda x: int((x > 1.01).sum())),
+    "divergences": g["divergences"].sum(min_count=1),
+}).reindex(present)
+summ.index = summ.index.map(LABEL)
+show_table(fmt_table(summ.reset_index().rename(columns={"backend": "Backend"}), 3))
+```
+
+```{python}
+#| label: fig-ess
+#| fig-cap: "Sampling efficiency per spectrum: worst-parameter bulk ESS per second of sampling (left) and total sampling wall time (right). Each point is one spectrum; hover for the sample. Log scales."
+fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.14,
+                    subplot_titles=["worst-parameter ESS / s", "sampling time (s)"])
+for b in present:
+    d = fi[fi["backend"] == b]
+    for ci, col in enumerate(("min_ess_bulk_per_s", "time_sampling_s")):
+        fig.add_trace(go.Box(y=[LABEL[b]] * len(d), x=d[col], name=LABEL[b], orientation="h",
+                             boxpoints="all", jitter=0.5, pointpos=0, legendgroup=b, showlegend=(ci == 0),
+                             marker=dict(color=COLOR[b], symbol=SYMBOL[b], size=7),
+                             line=dict(color=COLOR[b], width=1.5), fillcolor="rgba(0,0,0,0)",
+                             customdata=d["sample_id"],
+                             hovertemplate="%{customdata}: %{x:.3g}<extra>" + LABEL[b] + "</extra>"), 1, ci + 1)
+fig.update_xaxes(type="log")
+fig.update_yaxes(categoryorder="array", categoryarray=[LABEL[b] for b in present][::-1])
+fig.update_yaxes(showticklabels=False, row=1, col=2)
+fig.update_layout(height=380, showlegend=False, margin=dict(l=120))
+show(fig)
+```
+
+**Notes on the comparison.**
+
+* **Different algorithms.** Stan, PyMC and Turing run NUTS with the same
+  settings. NIMBLE (automated-factor slice) and BayesianTools (DEzs) are
+  gradient-free and need many more likelihood evaluations per effective draw,
+  so they ran with more iterations (see [Methods](methods.qmd)). Compare them
+  per second, not per iteration.
+* **Single-threaded likelihood.** Nothing here uses within-chain parallelism.
+  The forward model is a few thousand elementwise operations, so gradient
+  bookkeeping and per-evaluation overhead dominate the cost.
+* **Setup time.** Stan and NIMBLE compile C++ (cached between runs for Stan).
+  Turing's figure is Julia JIT compilation. PyMC compiles the PyTensor graph
+  with numba. BayesianTools has none.
+
+## Do the backends agree?
+
+```{python}
+#| label: fig-agree
+#| fig-cap: "Difference between each backend's posterior median and Stan's, in units of Stan's posterior SD, for every spectrum and parameter (iid model). Values within about ±0.2 are consistent with Monte Carlo error at these ESS. Hover for details."
+ref = P[(P["backend"] == "stan") & (P["errmodel"] == "iid")].set_index(["sample_id", "param"])
+rows = []
+for b in present:
+    if b == "stan":
+        continue
+    d = P[(P["backend"] == b) & (P["errmodel"] == "iid")].set_index(["sample_id", "param"])
+    j = d.join(ref, rsuffix="_ref", how="inner")
+    j["z"] = (j["q50"] - j["q50_ref"]) / j["sd_ref"]
+    j["backend"] = b
+    rows.append(j.reset_index())
+A = pd.concat(rows) if rows else pd.DataFrame()
+fig = go.Figure()
+if not A.empty:
+    for b in [x for x in present if x != "stan"]:
+        d = A[A["backend"] == b]
+        fig.add_trace(go.Box(x=d["z"], y=d["param"], name=LABEL[b], orientation="h", boxpoints="all",
+                             jitter=0.6, pointpos=0, marker=dict(color=COLOR[b], symbol=SYMBOL[b], size=6),
+                             line=dict(color=COLOR[b], width=1.2), fillcolor="rgba(0,0,0,0)",
+                             customdata=np.c_[d["sample_id"], d["q50"], d["q50_ref"]],
+                             hovertemplate=("%{customdata[0]} · %{y}<br>median %{customdata[1]:.4g} vs Stan "
+                                            "%{customdata[2]:.4g}<br>z = %{x:.2f}<extra>" + LABEL[b] + "</extra>")))
+    fig.add_vrect(x0=-0.2, x1=0.2, fillcolor="#f0efec", line_width=0, layer="below")
+fig.update_layout(boxmode="group", height=620, xaxis_title="(median − Stan median) / Stan posterior SD",
+                  yaxis=dict(categoryorder="array", categoryarray=CORE[::-1]),
+                  legend=dict(orientation="h", y=1.06, x=0))
+show(fig)
+```
+
+```{python}
+#| label: tbl-agree
+#| tbl-cap: "Largest absolute standardized difference from Stan per backend, and where it occurs."
+if not A.empty:
+    worst = A.sort_values("z", key=np.abs, ascending=False).groupby("backend").head(1)
+    t = worst[["backend", "sample_id", "param", "q50", "q50_ref", "z", "rhat"]].copy()
+    t["backend"] = t["backend"].map(LABEL)
+    show_table(fmt_table(t.rename(columns={"backend": "Backend", "sample_id": "Sample", "param": "Parameter",
+                                           "q50": "median", "q50_ref": "Stan median", "z": "z", "rhat": "R̂"}), 3))
+```
+
+### A closer look at one spectrum
+
+```{python}
+#| label: fig-forest
+#| fig-cap: "Posterior median and 90% interval for each parameter and backend. Choose a sample from the menu."
+pi = P[P["errmodel"] == "iid"]
+order = [s for s in sample_order() if s in set(pi["sample_id"])]
+params = [p for p in CORE if p in set(pi["param"])]
+fig = make_subplots(rows=2, cols=4, subplot_titles=params, horizontal_spacing=0.06, vertical_spacing=0.16)
+ntr = []
+for si, sid in enumerate(order):
+    n0 = len(fig.data)
+    for k, p in enumerate(params):
+        r, c = k // 4 + 1, k % 4 + 1
+        for b in present:
+            d = pi[(pi["backend"] == b) & (pi["sample_id"] == sid) & (pi["param"] == p)]
+            if d.empty:
+                continue
+            fig.add_trace(go.Scatter(x=d["q50"], y=[LABEL[b]], mode="markers", visible=(si == 0),
+                                     marker=dict(color=COLOR[b], symbol=SYMBOL[b], size=9), showlegend=False,
+                                     error_x=dict(type="data", symmetric=False, array=d["q95"] - d["q50"],
+                                                  arrayminus=d["q50"] - d["q05"], color=COLOR[b], width=0,
+                                                  thickness=2),
+                                     hovertemplate=f"{p}: %{{x:.4g}}<extra>{LABEL[b]}</extra>"), r, c)
+            meas = d["measured"].iloc[0]
+        if np.isfinite(meas):
+            fig.add_trace(go.Scatter(x=[meas, meas], y=[LABEL[present[0]], LABEL[present[-1]]], mode="lines",
+                                     line=dict(color=INK, width=1.5), visible=(si == 0), showlegend=False,
+                                     hovertemplate=f"measured {p}: {meas:.4g}<extra></extra>"), r, c)
+    ntr.append(len(fig.data) - n0)
+total = len(fig.data)
+buttons = []
+for i, sid in enumerate(order):
+    start = sum(ntr[:i])
+    buttons.append(dict(label=sample_label(sid), method="update",
+                        args=[{"visible": [start <= j < start + ntr[i] for j in range(total)]}]))
+fig.update_layout(updatemenus=[dict(buttons=buttons, x=0, y=1.14, xanchor="left")], height=560)
+for k in range(len(params)):
+    if k % 4:
+        fig.update_yaxes(showticklabels=False, row=k // 4 + 1, col=k % 4 + 1)
+show(fig)
+```
+
+The black vertical line marks the measured value, where one exists.
+
+## Exact vs. approximate $E_1$ in practice
+
+```{python}
+#| label: fig-e1fit
+#| fig-cap: "Stan posterior medians with the approximate E₁ minus those with the exact E₁, in units of the exact-E₁ posterior SD, for every spectrum and parameter."
+ex = P[(P["backend"] == "stan") & (P["errmodel"] == "iid")].set_index(["sample_id", "param"])
+apx = P[(P["backend"] == "stan") & (P["errmodel"] == "iid-approx")].set_index(["sample_id", "param"])
+if len(apx):
+    j = apx.join(ex, rsuffix="_ex", how="inner").reset_index()
+    j["z"] = (j["q50"] - j["q50_ex"]) / j["sd_ex"]
+    j["rel"] = (j["q50"] - j["q50_ex"]) / j["q50_ex"]
+    fig = go.Figure(go.Box(x=j["z"], y=j["param"], orientation="h", boxpoints="all", jitter=0.6, pointpos=0,
+                           marker=dict(color=COLOR["stan"], size=6), line=dict(color=COLOR["stan"], width=1.2),
+                           fillcolor="rgba(0,0,0,0)", customdata=np.c_[j["sample_id"], j["rel"]],
+                           hovertemplate="%{customdata[0]} · %{y}<br>z = %{x:.2f}<br>relative change %{customdata[1]:.2%}<extra></extra>"))
+    fig.update_layout(height=420, xaxis_title="(approx − exact median) / exact posterior SD",
+                      yaxis=dict(categoryorder="array", categoryarray=CORE[::-1]), showlegend=False)
+    show(fig)
+    zmax = j["z"].abs().max(); relmax = j["rel"].abs().max()
+    t_ex = F[(F.backend == "stan") & (F.errmodel == "iid")]["time_sampling_s"].median()
+    t_ap = F[(F.backend == "stan") & (F.errmodel == "iid-approx")]["time_sampling_s"].median()
+else:
+    zmax = relmax = t_ex = t_ap = float("nan")
+```
+
+Across all spectra, the approximate $E_1$ moves posterior medians by at most
+`{python} f"{zmax:.2f}"` posterior SDs (`{python} f"{100*relmax:.2f}%"` in
+relative terms). The median Stan sampling time is
+`{python} f"{t_ap:.0f}"` s with the approximation vs.
+`{python} f"{t_ex:.0f}"` s with the exact $E_1$. Under the iid model the
+posterior SDs are unrealistically small (see [Traits](traits.qmd)), so even
+these shifts overstate the approximation's practical importance. Under a
+realistic error model they would be negligible.
+
+## Fit diagnostics
+
+```{python}
+t = F.copy()
+t["backend"] = t["backend"].map(LABEL)
+show_table(fmt_table(t, 3))
+```

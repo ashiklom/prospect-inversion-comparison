@@ -1,0 +1,225 @@
+---
+title: "Better error models"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+ppc = pd.read_csv(SUMMARY / "ppc.csv.gz")
+P, F, V = read("params.csv"), read("fits.csv"), read("validation.csv")
+spec = pd.read_csv(ROOT / "data/validation/spectra.csv")
+real = [s for s in sample_order() if s != "synthetic" and s in set(ppc["sample_id"])]
+res = ppc[(ppc["backend"] == "stan") & (ppc["errmodel"] == "iid") & ppc["sample_id"].isin(real)].copy()
+res["resid"] = res["R_obs"] - res["R_q50"]
+```
+
+The first-round model treats PROSPECT's misfit as one wavelength-independent
+Gaussian SD with independent bands. On [Traits](traits.qmd) and
+[Spectra](spectra.qmd), that gives posteriors that are much too narrow, and
+held-out transmittance predictions whose 90% intervals miss most of the data.
+This page diagnoses why, lays out better error models, and fits one of them
+(heteroskedastic + AR(1)) as a demonstration.
+
+## What the residuals look like
+
+```{python}
+#| label: fig-resid
+#| fig-cap: "Reflectance residuals (observed − posterior median, Stan, iid) for every real leaf (gray) and their mean across leaves (blue). Hover a gray line to identify the leaf."
+fig = go.Figure()
+for sid in real:
+    d = res[res["sample_id"] == sid]
+    fig.add_trace(go.Scatter(x=d["wavelength"], y=d["resid"], mode="lines", line=dict(color="#c3c2b7", width=1),
+                             name=sid, showlegend=False,
+                             hovertemplate=f"{sample_label(sid)}<br>%{{x}} nm: %{{y:.4f}}<extra></extra>"))
+m = res.groupby("wavelength")["resid"].mean()
+fig.add_trace(go.Scatter(x=m.index, y=m.values, mode="lines", line=dict(color=COLOR["stan"], width=2.5),
+                         name="mean over leaves", hovertemplate="%{x} nm<br>mean %{y:.4f}<extra></extra>"))
+fig.add_hline(y=0, line=dict(color=AXIS, width=1))
+fig.update_layout(height=420, xaxis_title="wavelength (nm)", yaxis_title="R residual",
+                  legend=dict(orientation="h", y=1.08, x=0))
+show(fig)
+```
+
+```{python}
+#| label: fig-acf
+#| fig-cap: "Left: autocorrelation of the reflectance residuals vs. lag (in nm), per leaf (gray) and averaged (blue). Right: for the five LOPEX leaves, SD across the 5 replicate measurements (instrument + leaf-placement noise) vs. RMS model residual, by wavelength. Log scale."
+def acf(x, maxlag):
+    x = x - x.mean()
+    v = np.dot(x, x)
+    return np.array([np.dot(x[:len(x) - k], x[k:]) / v for k in range(maxlag + 1)])
+lags = np.arange(0, 301)
+fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.12,
+                    subplot_titles=["residual autocorrelation", "replicate noise vs. model residual (LOPEX)"])
+A = []
+for sid in real:
+    a = acf(res[res["sample_id"] == sid]["resid"].to_numpy(), lags[-1]); A.append(a)
+    fig.add_trace(go.Scatter(x=lags, y=a, mode="lines", line=dict(color="#c3c2b7", width=1), showlegend=False,
+                             hovertemplate=f"{sid}<br>lag %{{x}} nm: %{{y:.2f}}<extra></extra>"), 1, 1)
+acf_mean = np.mean(A, axis=0)
+fig.add_trace(go.Scatter(x=lags, y=acf_mean, mode="lines", line=dict(color=COLOR["stan"], width=2.5),
+                         name="mean ACF", hovertemplate="lag %{x} nm: %{y:.2f}<extra>mean</extra>"), 1, 1)
+lopex = [s for s in real if s.startswith("lopex")]
+rep_sd = (spec[spec["sample_id"].isin(lopex)].groupby(["sample_id", "wavelength"])["R"].std()
+          .groupby("wavelength").apply(lambda x: np.sqrt(np.mean(x**2))))
+rms = res[res["sample_id"].isin(lopex)].groupby("wavelength")["resid"].apply(lambda x: np.sqrt(np.mean(x**2)))
+fig.add_trace(go.Scatter(x=rep_sd.index, y=rep_sd.values, mode="lines", line=dict(color=COLOR["pymc"], width=2),
+                         name="replicate SD", hovertemplate="%{x} nm: %{y:.4f}<extra>replicate SD</extra>"), 1, 2)
+fig.add_trace(go.Scatter(x=rms.index, y=rms.values, mode="lines", line=dict(color=COLOR["stan"], width=2),
+                         name="RMS model residual", hovertemplate="%{x} nm: %{y:.4f}<extra>RMS residual</extra>"), 1, 2)
+fig.update_xaxes(title_text="lag (nm)", row=1, col=1)
+fig.update_yaxes(title_text="autocorrelation", row=1, col=1)
+fig.update_xaxes(title_text="wavelength (nm)", row=1, col=2)
+fig.update_yaxes(type="log", title_text="reflectance units", row=1, col=2)
+fig.update_layout(height=420, legend=dict(orientation="h", y=1.15, x=0))
+show(fig)
+lag_half = int(np.argmax(acf_mean < 0.5))
+ratio = float(np.median(rms.values / rep_sd.reindex(rms.index).values))
+```
+
+Three things stand out:
+
+1. **The residuals are smooth, not noisy.** The mean autocorrelation stays
+   above 0.5 out to a lag of about `{python} f"{lag_half}"` nm. At 1 nm
+   sampling, 2000 bands carry the information of only a few dozen independent
+   observations. The iid likelihood counts all 2000, so it is overconfident by
+   roughly a factor of $\sqrt{2000/\text{(a few dozen)}}$ in posterior SD.
+2. **The residuals are mostly model error, not measurement error.** For the
+   LOPEX leaves, the RMS residual is a median of about `{python} f"{ratio:.0f}"`×
+   the replicate-to-replicate SD. Instrument noise is a small part of the
+   misfit.
+3. **The residuals share structure across leaves.** The mean residual has
+   features at the same wavelengths in very different leaves: the blue end
+   below ~450 nm, the green peak and red edge, and the 1450/1940 nm water
+   bands. These are PROSPECT-D's structural errors, and they can be learned.
+
+A good error model therefore needs (i) a wavelength-dependent scale,
+(ii) correlation between neighboring bands, and ideally (iii) a systematic
+component shared across leaves, kept separate from (iv) a small instrument-noise
+term.
+
+## Candidate error models
+
+Write the observation as $y(\lambda) = R(\lambda;\theta) + \delta(\lambda) + \varepsilon(\lambda)$:
+$\delta$ is structured model discrepancy and $\varepsilon$ is measurement noise.
+The options below run roughly from cheapest to most complete. All of them fit
+in any of the five backends; cost is per log-density evaluation, with
+$n\approx 2000$ bands.
+
+| | Model | What it captures | Cost | Notes |
+|---|---|---|---|---|
+| **A** | Heteroskedastic scale: $\sigma(\lambda) = \sigma_0 + \sigma_1 R(\lambda)$, or $\log\sigma(\lambda) = \sum_k \beta_k B_k(\lambda)$ (B-spline, random-walk prior on $\beta$) | Wavelength-dependent magnitude | $O(n)$ | The spline form is weakly identified from one spectrum; learn $\beta$ across many leaves (C, E). |
+| **B** | AR(1) / Ornstein–Uhlenbeck correlation: $z_i = \phi z_{i-1} + \sqrt{1-\phi^2}\,\eta_i$, with $\varepsilon_i = \sigma_i z_i$ | Band-to-band autocorrelation | $O(n)$, exact (tridiagonal precision, $\log\lvert\Sigma\rvert = (n-1)\log(1-\phi^2)$) | For uneven spacing use $\phi_i = e^{-\Delta\lambda_i/\ell}$ (exponential/Matérn-½ kernel). **Demonstrated below** (A + B). |
+| **B′** | Smoother stationary processes (Matérn-3/2, 5/2) in state-space form | Smooth residuals without AR(1)'s rough small-lag behavior | $O(n)$ via Kalman filter | Same idea as B with a better-matched smoothness. Needs a Kalman-filter log-likelihood in each DSL. |
+| **C** | Hierarchical, wavelength-specific variance shared across a library: $\log\sigma_\ell(\lambda) = \mu_\sigma(\lambda) + u_\ell$ | Which bands PROSPECT fits poorly, learned from data | $O(n)$ per leaf | Pool across leaves (and instruments) so a per-band $\sigma$ becomes identifiable. |
+| **D** | Gaussian-process discrepancy (Kennedy & O'Hagan 2001): $\delta \sim \mathcal{GP}(0, k_\psi)$, $\varepsilon\sim\mathcal N(0,\sigma_\text{inst}^2(\lambda))$ | Smooth systematic misfit separated from noise | $O(nm)$ with a Hilbert-space low-rank GP ($m\approx 30$–$60$ basis functions); $O(n)$ for Markov kernels | Allows nonstationarity (separate length-scales for VIS / NIR / SWIR, or input warping). $\delta$ competes with $\theta$, so its amplitude needs an informative prior, ideally from E. Fix $\sigma_\text{inst}$ from replicates. |
+| **E** | Empirical-Bayes discrepancy from a spectral library: $\delta \sim \mathcal N(\mu(\lambda), \Lambda\Lambda^\top + D)$ with $k\approx 5$–$10$ factors | Recurring structural error (mean bias and its main modes) | $O(nk^2)$ via Woodbury | Fit $\mu$, $\Lambda$, $D$ by inverting many leaves (e.g. all 276 ANGERS + 64 LOPEX) hierarchically, or by PCA of residuals as a quick first pass. Instrument-specific $\mu$ absorbs sphere-vs-clip differences. |
+| **F** | Heavy tails: Student-$t$ marginals or a $t$-process | Outliers, detector-splice steps (ASD at 1000/1800 nm), specular artifacts | $O(n)$ | Combine with B/D for robustness. |
+| **G** | Likelihood tempering by effective sample size, $\ell(\theta)\cdot n_\text{eff}/n$ (as in `PEcAnRTM::neff`) | Overconfidence only | $O(n)$ | A quick patch: it widens posteriors but does not model the shape of the misfit or make predictive bands right. A baseline, not a solution. |
+
+**Recommendation.** Use **E + B/D** as the target model, with the
+**A + B** model below as the cheap default:
+
+1. Invert a large library (ANGERS + LOPEX + others) hierarchically and learn
+   the discrepancy mean $\mu(\lambda)$ and a low-rank covariance $\Lambda$.
+   Learn per-instrument noise $D$ from replicates.
+2. For individual leaves, use the learned $\mu$ and $\Lambda\Lambda^\top + D$
+   as a fixed, informative discrepancy model. Add a leaf-specific
+   AR(1)/Matérn term with a small amplitude for whatever the factors miss.
+3. Validate with the checks already on this site: coverage of measured traits,
+   and coverage of **held-out transmittance**. Where T exists, fitting R and T
+   jointly with correlated R/T discrepancies is the other big win.
+
+## Demonstration: heteroskedastic + AR(1) (Stan)
+
+`stan/prospect_hetero_ar1.stan` replaces the iid likelihood with
+$y_i = R_i + s_i z_i$, $s_i = \sigma_0 + \sigma_1 R_i$, where $z$ is a
+stationary unit-variance AR(1) process across adjacent 1 nm bands. The
+likelihood is exact and costs $O(n)$. Priors: $\sigma_0\sim\text{HalfNormal}(0.05)$,
+$\sigma_1\sim\text{HalfNormal}(0.2)$, $\phi\sim U(0,1)$.
+
+```{python}
+har = P[(P["backend"] == "stan") & (P["errmodel"] == "hetero_ar1")]
+iid = P[(P["backend"] == "stan") & (P["errmodel"] == "iid")]
+have = len(har) > 0
+```
+
+```{python}
+#| label: fig-har-traits
+#| fig-cap: "Trait posteriors under the iid (blue circles) and heteroskedastic AR(1) (orange squares) error models, vs. measured values (Stan). Log axes; gray line 1:1."
+MEAS = ["Cab", "Car", "Cw", "Cm"]
+fig = make_subplots(rows=2, cols=2, horizontal_spacing=0.1, vertical_spacing=0.14,
+                    subplot_titles=[f"{TRAIT_NAME[p]} ({TRAIT_UNITS[p]})" for p in MEAS])
+for i, p in enumerate(MEAS):
+    r, c = i // 2 + 1, i % 2 + 1
+    allv = P[(P["param"] == p) & (P["measured"] > 0) & (P["backend"] == "stan")]
+    lo, hi = allv[["measured", "q05"]].min().min(), allv[["measured", "q95"]].max().max()
+    fig.add_trace(go.Scatter(x=[lo / 1.5, hi * 1.5], y=[lo / 1.5, hi * 1.5], mode="lines",
+                             line=dict(color=AXIS, width=1), hoverinfo="skip", showlegend=False), r, c)
+    for k, (lab, d0, col, sym, off) in enumerate((("iid", iid, COLOR["stan"], "circle", -0.015),
+                                                  ("hetero + AR(1)", har, COLOR["pymc"], "square", 0.015))):
+        d = d0[(d0["param"] == p) & (d0["measured"] > 0)]
+        if d.empty:
+            continue
+        fig.add_trace(go.Scatter(
+            x=d["measured"] * 10**off, y=d["q50"], mode="markers", name=lab, legendgroup=lab,
+            showlegend=(i == 0), marker=dict(color=col, symbol=sym, size=8, line=dict(color=SURFACE, width=1)),
+            error_y=dict(type="data", symmetric=False, array=d["q95"] - d["q50"], arrayminus=d["q50"] - d["q05"],
+                         color=col, thickness=1.5, width=0),
+            customdata=np.c_[d["sample_id"], d["q05"], d["q95"]],
+            hovertemplate="%{customdata[0]}<br>measured %{x:.3g}<br>median %{y:.3g}<br>90% CI %{customdata[1]:.3g}–%{customdata[2]:.3g}<extra>" + lab + "</extra>"),
+            r, c)
+    fig.update_xaxes(type="log", title_text="measured", row=r, col=c)
+    fig.update_yaxes(type="log", title_text="posterior", row=r, col=c)
+fig.update_layout(height=740, legend=dict(orientation="h", y=1.08, x=0))
+if have:
+    show(fig)
+```
+
+```{python}
+#| label: tbl-har
+#| tbl-cap: "iid vs. heteroskedastic AR(1) error model (Stan): coverage of measured traits (Cab, Car, EWT, LMA; real leaves), median relative width of the 90% intervals, and held-out transmittance RMSE and 90% predictive coverage."
+def summarize(errm):
+    d = P[(P["backend"] == "stan") & (P["errmodel"] == errm) & P["param"].isin(MEAS)
+          & P["measured"].notna() & (P["sample_id"] != "synthetic")]
+    v = V[(V["backend"] == "stan") & (V["errmodel"] == errm) & (V["region"] == "All") & (V["sample_id"] != "synthetic")]
+    f = F[(F["backend"] == "stan") & (F["errmodel"] == errm)]
+    return {"Error model": ERRMODEL_LABEL[errm],
+            "Trait 90% coverage": f"{int(d['covered90'].sum())}/{len(d)}",
+            "Median rel. 90% CI width": np.median((d["q95"] - d["q05"]) / d["q50"]),
+            "Trait RMSE Cab": np.sqrt(np.mean((d[d.param == "Cab"]["q50"] - d[d.param == "Cab"]["measured"])**2)),
+            "R coverage (in-sample)": v[v.quantity == "R"]["coverage90"].mean(),
+            "T RMSE (held out)": v[v.quantity == "T"]["rmse"].mean(),
+            "T coverage (held out)": v[v.quantity == "T"]["coverage90"].mean(),
+            "Median sampling time (s)": f["time_sampling_s"].median()}
+if have:
+    show_table(fmt_table(pd.DataFrame([summarize("iid"), summarize("hetero_ar1")]), 3))
+```
+
+```{python}
+#| label: tbl-har-params
+#| tbl-cap: "Posterior medians of the error-model parameters per leaf (Stan, heteroskedastic AR(1))."
+if have:
+    e = har[har["param"].isin(["sigma0", "sigma1", "phi"])].pivot(index="sample_id", columns="param", values="q50")
+    e = e.reindex([s for s in sample_order() if s in e.index]).reset_index()
+    show_table(fmt_table(e, 3))
+    phi_med = float(e["phi"].median())
+else:
+    phi_med = float("nan")
+```
+
+**Takeaways.**
+
+* The estimated band-to-band correlation is very high (median
+  $\phi \approx$ `{python} f"{phi_med:.3f}"`), which confirms that the residual
+  is a smooth process. In effect, the AR(1) model judges the spectrum to carry
+  far less independent information than the iid model assumes.
+* Trait intervals widen a lot, and coverage of the measured traits improves
+  accordingly. The posterior medians move too, because the AR(1) likelihood
+  weights smooth, broad features over individual bands.
+* The cost is about the same as iid: the extra work is $O(n)$ arithmetic.
+* What AR(1) does **not** fix: the discrepancy has structure that is shared
+  across leaves (the blue mean residual above), which a stationary zero-mean
+  process cannot represent. That is the motivation for models D and E above.
+  The held-out transmittance check is the natural test of whether they work.

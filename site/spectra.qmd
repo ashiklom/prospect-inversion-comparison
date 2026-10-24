@@ -1,0 +1,140 @@
+---
+title: "Spectral fits and held-out transmittance"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+ppc = pd.read_csv(SUMMARY / "ppc.csv.gz")
+V = read("validation.csv")
+order = [s for s in sample_order() if s in set(ppc["sample_id"])]
+```
+
+The inversions use reflectance only. Every leaf in the validation set also has
+a **measured transmittance**, which provides a direct out-of-sample check. Each
+posterior draw is pushed through PROSPECT-D to predict T, and the prediction is
+compared with the measurement. A model that has the right structure and the
+right uncertainty should predict T about as well as it fits R, with 90%
+predictive intervals covering about 90% of the measured values.
+
+## Spectral fits
+
+```{python}
+#| label: fig-ppc
+#| fig-cap: "Stan fit (iid error model). Rows: observed vs. fitted reflectance, its residual, observed vs. predicted (held-out) transmittance, and its residual. The band is the 90% posterior predictive interval including σ. Choose a sample from the menu."
+def ppc_fig(backend="stan", errmodel="iid"):
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, vertical_spacing=0.04,
+                        row_heights=[0.32, 0.18, 0.32, 0.18])
+    per = []
+    for i, sid in enumerate(order):
+        d = ppc[(ppc["backend"] == backend) & (ppc["errmodel"] == errmodel) & (ppc["sample_id"] == sid)]
+        vis = i == 0
+        n0 = len(fig.data)
+        for q, row in (("R", 1), ("T", 3)):
+            fig.add_trace(go.Scatter(x=np.r_[d["wavelength"], d["wavelength"][::-1]],
+                                     y=np.r_[d[f"{q}_pred_q95"], d[f"{q}_pred_q05"][::-1]],
+                                     fill="toself", fillcolor=BAND, line=dict(width=0), hoverinfo="skip",
+                                     name="90% predictive", showlegend=(i == 0 and q == "R"),
+                                     legendgroup="band", visible=vis), row, 1)
+            fig.add_trace(go.Scatter(x=d["wavelength"], y=d[f"{q}_obs"], mode="lines", name="observed",
+                                     line=dict(color=INK, width=1.5), legendgroup="obs",
+                                     showlegend=(i == 0 and q == "R"), visible=vis,
+                                     hovertemplate=f"%{{x}} nm<br>{q} obs %{{y:.4f}}<extra></extra>"), row, 1)
+            fig.add_trace(go.Scatter(x=d["wavelength"], y=d[f"{q}_q50"], mode="lines", name="posterior median",
+                                     line=dict(color=COLOR["stan"], width=2), legendgroup="med",
+                                     showlegend=(i == 0 and q == "R"), visible=vis,
+                                     hovertemplate=f"%{{x}} nm<br>{q} model %{{y:.4f}}<extra></extra>"), row, 1)
+            fig.add_trace(go.Scatter(x=d["wavelength"], y=d[f"{q}_obs"] - d[f"{q}_q50"], mode="lines",
+                                     line=dict(color=INK2, width=1.5), showlegend=False, visible=vis,
+                                     hovertemplate=f"%{{x}} nm<br>{q} residual %{{y:.4f}}<extra></extra>"),
+                          row + 1, 1)
+        per.append(len(fig.data) - n0)
+    total = len(fig.data)
+    buttons = []
+    for i, sid in enumerate(order):
+        start = sum(per[:i])
+        buttons.append(dict(label=sample_label(sid), method="update",
+                            args=[{"visible": [start <= j < start + per[i] for j in range(total)]}]))
+    fig.update_layout(updatemenus=[dict(buttons=buttons, x=0, y=1.07, xanchor="left")],
+                      height=820, legend=dict(orientation="h", y=1.07, x=0.45))
+    for row, t in ((1, "Reflectance (fitted)"), (2, "R residual"), (3, "Transmittance (held out)"), (4, "T residual")):
+        fig.update_yaxes(title_text=t, row=row, col=1)
+    fig.update_xaxes(title_text="wavelength (nm)", row=4, col=1)
+    return fig
+show(ppc_fig())
+```
+
+All five backends give practically identical posterior predictive spectra (see
+[Backends](backends.qmd)), so only Stan is shown here. The full table below
+covers every backend.
+
+## Transmittance as validation
+
+```{python}
+#| label: fig-tval
+#| fig-cap: "Held-out transmittance: RMSE of the posterior-median prediction (left) and empirical coverage of the 90% predictive interval (right), by spectral region, for every leaf (Stan, iid). Fitted reflectance is shown for reference. Hover for values."
+vi = V[(V["errmodel"] == "iid") & (V["backend"] == "stan") & (V["sample_id"] != "synthetic")]
+regions = ["VIS", "Red edge", "NIR", "SWIR1", "SWIR2", "All"]
+fig = make_subplots(rows=1, cols=2, subplot_titles=["RMSE", "90% interval coverage"], horizontal_spacing=0.12)
+for qi, (q, sym) in enumerate((("R", "circle-open"), ("T", "circle"))):
+    d = vi[vi["quantity"] == q]
+    for ci, metric in enumerate(("rmse", "coverage90")):
+        fig.add_trace(go.Box(x=d["region"], y=d[metric], name="R (fitted)" if q == "R" else "T (held out)",
+                             legendgroup=q, showlegend=(ci == 0), boxpoints="all", jitter=0.4, pointpos=0,
+                             marker=dict(color=COLOR["stan"] if q == "R" else COLOR["pymc"], size=6, symbol=sym),
+                             line=dict(color=COLOR["stan"] if q == "R" else COLOR["pymc"], width=1.5),
+                             fillcolor="rgba(0,0,0,0)", offsetgroup=q,
+                             customdata=d["sample_id"],
+                             hovertemplate="%{customdata}<br>%{x}: %{y:.3f}<extra></extra>"), 1, ci + 1)
+fig.add_hline(y=0.9, line=dict(color=MUTED, width=1), row=1, col=2)
+fig.update_xaxes(categoryorder="array", categoryarray=regions)
+fig.update_yaxes(title_text="RMSE", row=1, col=1)
+fig.update_yaxes(title_text="fraction inside 90% PI", range=[0, 1.02], row=1, col=2)
+fig.update_layout(boxmode="group", height=430, legend=dict(orientation="h", y=1.15, x=0))
+show(fig)
+```
+
+```{python}
+#| label: tbl-tval
+#| tbl-cap: "Mean over real leaves of RMSE, bias (prediction − observation), and 90% predictive-interval coverage, for fitted R and held-out T, by backend (iid error model)."
+real = V[(V["sample_id"] != "synthetic") & (V["region"] == "All")]
+t = (real.groupby(["errmodel", "backend", "quantity"])[["rmse", "bias", "coverage90"]].mean().reset_index())
+t["backend"] = t["backend"].map(LABEL)
+t["errmodel"] = t["errmodel"].map(ERRMODEL_LABEL)
+show_table(fmt_table(t.rename(columns={"errmodel": "Error model", "backend": "Backend", "quantity": "Quantity",
+                                       "rmse": "RMSE", "bias": "Bias", "coverage90": "90% coverage"}), 3))
+```
+
+```{python}
+r_rmse = real[(real.backend == "stan") & (real.errmodel == "iid") & (real.quantity == "R")]["rmse"].mean()
+t_rmse = real[(real.backend == "stan") & (real.errmodel == "iid") & (real.quantity == "T")]["rmse"].mean()
+t_cov = real[(real.backend == "stan") & (real.errmodel == "iid") & (real.quantity == "T")]["coverage90"].mean()
+r_cov = real[(real.backend == "stan") & (real.errmodel == "iid") & (real.quantity == "R")]["coverage90"].mean()
+```
+
+**Reading the transmittance check.** Averaged over leaves, the reflectance fit
+has RMSE `{python} f"{r_rmse:.4f}"` with `{python} f"{100*r_cov:.0f}%"`
+in-sample predictive coverage. The held-out transmittance prediction has RMSE
+`{python} f"{t_rmse:.4f}"` and only `{python} f"{100*t_cov:.0f}%"` coverage.
+The T errors are smooth and systematic rather than noisy: they are
+model-structure and parameter errors, not measurement noise. That is exactly
+what the iid model's single σ cannot describe. It also matches the known
+weakness of reflectance-only PROSPECT inversion: N, Cw and Cm trade off against
+each other, and R alone cannot pin down how light is split between
+transmittance and absorptance. Practical consequences:
+
+1. Fitting R and T jointly is much better when T exists. The forward model
+   already returns both in every backend, so this only changes the likelihood.
+2. When only R is available, the posterior must be widened honestly. That is
+   the job of the structured error models on the [Error models](error-models.qmd)
+   page, which this check can then evaluate.
+
+## Full validation table
+
+```{python}
+t = V.copy()
+t["backend"] = t["backend"].map(LABEL)
+show_table(fmt_table(t, 3))
+```

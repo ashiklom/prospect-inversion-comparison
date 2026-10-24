@@ -1,0 +1,107 @@
+---
+title: "Validation data"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+tr = traits()
+spec = pd.read_csv(ROOT / "data/validation/spectra.csv")
+order = sample_order()
+```
+
+The validation leaves come from
+[`ashiklom/spectra_db`](https://github.com/ashiklom/spectra_db). LOPEX and
+ANGERS are the only projects there with reflectance **and** transmittance plus
+measured chlorophyll, carotenoids, water (EWT) and dry matter (LMA). The ten
+leaves below span the trait ranges of those two libraries and include
+senescent, white/variegated, sclerophyllous and very thin leaves. A synthetic
+PROSPECT-D spectrum with known parameters and N(0, 0.005) noise is included as
+a parameter-recovery check.
+
+* LOPEX: Perkin-Elmer Lambda 19 with an integrating sphere, 400–2500 nm, 5 replicate
+  R/T measurements per leaf (replicate 1 is fitted; all 5 are used on
+  [Error models](error-models.qmd)).
+* ANGERS: ASD FieldSpec with a leaf clip, 400–2450 nm, one R/T pair per leaf.
+* EWT and LMA are already in g cm⁻², the units of PROSPECT's $C_w$ and $C_m$.
+  Neither library measured anthocyanins.
+
+```{python}
+#| label: tbl-traits
+#| tbl-cap: "Validation samples and measured traits."
+t = tr.set_index("sample_id").loc[order].reset_index()
+cols = ["sample_id", "project", "species", "role", "Cab", "Car", "Cw", "Cm"]
+show_table(fmt_table(t[cols].rename(columns={
+    "sample_id": "Sample", "project": "Project", "species": "Species", "role": "Why chosen",
+    "Cab": "Cab (µg cm⁻²)", "Car": "Car (µg cm⁻²)", "Cw": "EWT (g cm⁻²)", "Cm": "LMA (g cm⁻²)"}), 3))
+```
+
+```{python}
+#| label: fig-traitspace
+#| fig-cap: "Measured traits of the validation set. Hover for sample details."
+real = t[t["project"] != "synthetic"]
+fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.12)
+for proj, sym in (("lopex", "circle"), ("angers", "diamond")):
+    d = real[real["project"] == proj]
+    hover = [f"{r.sample_id}<br>{r.species}<br>Cab {r.Cab} · Car {r.Car}<br>EWT {r.Cw} · LMA {r.Cm}"
+             for r in d.itertuples()]
+    fig.add_trace(go.Scatter(x=d["Cab"], y=d["Car"], mode="markers", name=proj.upper(),
+                             marker=dict(symbol=sym, size=11, color=COLOR["stan" if proj == "lopex" else "pymc"],
+                                         line=dict(color=SURFACE, width=2)),
+                             text=hover, hovertemplate="%{text}<extra></extra>"), 1, 1)
+    fig.add_trace(go.Scatter(x=d["Cm"], y=d["Cw"], mode="markers", name=proj.upper(), showlegend=False,
+                             marker=dict(symbol=sym, size=11, color=COLOR["stan" if proj == "lopex" else "pymc"],
+                                         line=dict(color=SURFACE, width=2)),
+                             text=hover, hovertemplate="%{text}<extra></extra>"), 1, 2)
+fig.update_xaxes(title_text="Chlorophyll a+b (µg cm⁻²)", row=1, col=1)
+fig.update_yaxes(title_text="Carotenoids (µg cm⁻²)", row=1, col=1)
+fig.update_xaxes(title_text="LMA (g cm⁻²)", row=1, col=2)
+fig.update_yaxes(title_text="EWT (g cm⁻²)", row=1, col=2)
+fig.update_layout(height=380, legend=dict(orientation="h", y=1.12, x=0))
+show(fig)
+```
+
+## Spectra
+
+```{python}
+#| label: fig-spectra
+#| fig-cap: "Reflectance (top) and transmittance (bottom) of each validation leaf. For LOPEX leaves, replicates 2–5 are shown in gray behind the fitted replicate 1. Choose a sample from the menu."
+fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.07)
+ntr = []
+for i, sid in enumerate(order):
+    d = spec[spec["sample_id"] == sid]
+    n = 0
+    for rep, g in d.groupby("replicate"):
+        main = rep == 1
+        color = COLOR["stan"] if main else "#c3c2b7"
+        for row, q in ((1, "R"), (2, "T")):
+            fig.add_trace(go.Scatter(
+                x=g["wavelength"], y=g[q], mode="lines", visible=(i == 0),
+                line=dict(color=color if row == 1 or not main else COLOR["pymc"], width=2 if main else 1),
+                name=f"{q} replicate {rep}", showlegend=False,
+                hovertemplate=f"%{{x}} nm<br>{q} = %{{y:.4f}}<extra>rep {rep}</extra>"), row, 1)
+            n += 1
+    ntr.append(n)
+vis = lambda i: sum(([j == i] * ntr[j] for j in range(len(order))), [])
+buttons = [dict(label=sample_label(s), method="update", args=[{"visible": vis(i)}]) for i, s in enumerate(order)]
+fig.update_layout(updatemenus=[dict(buttons=buttons, x=0, y=1.13, xanchor="left")], height=560)
+fig.update_yaxes(title_text="Reflectance", row=1, col=1)
+fig.update_yaxes(title_text="Transmittance", row=2, col=1)
+fig.update_xaxes(title_text="wavelength (nm)", row=2, col=1)
+show(fig)
+```
+
+::: {.callout-note collapse="true"}
+## Leaves considered and excluded
+
+* `yang_pheno` (Harvard Forest seasonal series) has many young, anthocyanin-rich
+  leaves, but its R/T files for the candidate red-oak leaf look scrambled: R
+  jumps 0.02 → 0.10 → 0.03 → 0.34 across 550–800 nm, and the wavelength rows are
+  out of order. It also has no EWT. `an03r0128` (highest anthocyanin
+  reflectance index among the ANGERS leaves) is used instead.
+* `lopex_11` and `lopex_66` look like dried leaves without pigment measurements.
+* `processed-spec-data/*.rds` holds the same LOPEX/ANGERS data in an older R
+  format; the `spectra_db` CSVY files were used instead.
+:::

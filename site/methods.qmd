@@ -1,0 +1,150 @@
+---
+title: "Methods"
+---
+
+```{python}
+import pandas as pd, json
+from _lib import *
+```
+
+## Forward model: PROSPECT-D
+
+PROSPECT treats a leaf as a stack of $N$ absorbing plates. For each wavelength
+$\lambda$, the absorption coefficient of one elementary layer is
+
+$$
+k(\lambda) = \frac{1}{N}\sum_j C_j\, K_j(\lambda),
+$$
+
+where $C_j$ are constituent contents and $K_j$ their specific absorption
+coefficients. For PROSPECT-D, $j \in$ {chlorophyll $C_{ab}$, carotenoids
+$C_{ar}$, anthocyanins $C_{anth}$, brown pigments $C_{brown}$, water $C_w$,
+dry matter $C_m$} (Féret et al. 2017).
+
+The transmissivity of a compact layer is
+
+$$
+\tau(k) = (1-k)\,e^{-k} + k^2 E_1(k),
+\qquad E_1(x) = \int_x^\infty \frac{e^{-t}}{t}\,dt .
+$$
+
+Reflectance and transmittance then follow from Allen et al. (1969) for a single
+plate, with interface transmissivities $t_{\alpha}=\bar t(40^\circ, n)$,
+$t_{12}=\bar t(90^\circ, n)$ and $t_{21}=t_{12}/n^2$ (Stern 1964). Stokes'
+(1862) solution then gives $N$ plates. The three $\bar t$ vectors depend only
+on the refractive index, so they are precomputed once in
+`scripts/prepare_data.py`.
+
+**Versions.** Every implementation takes a coefficient matrix $K$
+(wavelength × constituent) and a constituent vector $C$, so a PROSPECT version
+is just data. `config/models.json` defines PROSPECT-D, 5B, 5 and 4. The
+coefficient tables are in `data/coefficients/`. Adding PROSPECT-PRO (protein
+and carbon-based constituents) means adding its coefficient table and a JSON
+entry; no backend code changes.
+
+### The exponential integral $E_1$
+
+None of Stan, NIMBLE or PyTensor ships an $E_1$, so each backend has two modes.
+
+* **exact** (default): a library implementation, with the analytic derivative
+  $\frac{d}{dx}E_1(x) = -e^{-x}/x$ supplied explicitly wherever gradients are
+  needed. The special function itself is therefore never differentiated.
+* **approx**: the Swamee & Ohija (2003) closed form
+  $E_1(x) \approx \left(A^{-7.7} + B\right)^{-0.13}$, with
+  $A=\ln\!\big((0.56146/x+0.65)(1+x)\big)$ and
+  $B=x^4 e^{7.7x}(2+x)^{3.7}$. It is cheap and differentiable in any DSL. See
+  [Forward model](verification.qmd) for its error.
+
+```{python}
+impl = pd.DataFrame([
+    ["NumPy (reference)", "python/prospect_np.py", "scipy.special.exp1 (Cephes)", "—", "—"],
+    ["Stan", "stan/prospect_functions.stan", "boost::math::expint(1, x) via external C++ (stan/expint.hpp)",
+     "make_callback_var with −e⁻ˣ/x", "NUTS (CmdStan)"],
+    ["PyMC", "python/prospect_pt.py", "Custom PyTensor Op: scipy exp1; native numba kernel via scipy's Cython export",
+     "Op.pullback returns −e⁻ˣ/x", "NUTS (PyMC)"],
+    ["Turing.jl", "julia/src/ProspectModels.jl", "SpecialFunctions.expint",
+     "DiffRules rule −e⁻ˣ/x (ForwardDiff)", "NUTS (AdvancedHMC)"],
+    ["NIMBLE", "r/prospect_nimble.R", "GSL gsl_sf_expint_E1 via nimbleExternalCall (static link)",
+     "not needed (gradient-free sampler)", "Automated-factor slice (AF_slice)"],
+    ["BayesianTools", "r/prospect.R", "expint::expint_E1 (GSL port)",
+     "not needed (gradient-free sampler)", "DREAM-family DEzs"],
+], columns=["Backend", "PROSPECT implementation", "Exact E₁", "E₁ gradient", "Sampler"])
+show_table(impl)
+```
+
+## Statistical model (first round)
+
+All backends use the same priors (`config/priors.json`, adapted from
+`PEcAnRTM::prospect_bt_prior`) and the same likelihood. They are fitted to
+**reflectance only**; measured transmittance is held out for validation.
+
+$$
+\begin{aligned}
+N &\sim \mathcal N(1.5,\, 1)\ \text{truncated to } N>1 \\
+C_j &\sim \text{LogNormal}(\mu_j, s_j) \\
+\sigma &\sim \text{HalfNormal}(0.05) \\
+R^{obs}(\lambda_i) &\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ \sigma\big)\quad\text{iid over } i
+\end{aligned}
+$$
+
+```{python}
+pri = config("priors")
+rows = [["N", "TruncNormal", f"mean {pri['N']['mean']}, sd {pri['N']['sd']}, N > {pri['N']['lower']}", "1.5"]]
+import math
+for c, p in pri["constituents"].items():
+    rows.append([c, "LogNormal", f"meanlog {p['meanlog']:.3f} (median {math.exp(p['meanlog']):.3g}), sdlog {p['sdlog']}",
+                 f"{math.exp(p['meanlog'] - 1.645*p['sdlog']):.3g} – {math.exp(p['meanlog'] + 1.645*p['sdlog']):.3g}"])
+rows.append(["σ", "HalfNormal", f"scale {pri['sigma']['scale']}", f"0 – {1.645*pri['sigma']['scale']:.3g}"])
+rows[0][3] = "1.04 – 2.9"
+show_table(pd.DataFrame(rows, columns=["Parameter", "Distribution", "Hyperparameters", "Central 90%"]))
+```
+
+The fits use all bands from 400 nm to 2500 nm (2450 nm for ANGERS) at 1 nm
+spacing, which gives 2051–2101 observations per spectrum.
+
+## Sampling
+
+To keep timings comparable, **chains run sequentially on one core** in every
+backend. Different spectra run in parallel (`make -j4`).
+
+```{python}
+s = config("sampling")
+rows = []
+for b in BACKENDS:
+    c = s[b]
+    if b in ("stan", "pymc", "turing"):
+        desc = f"{c['chains']} chains × ({c['warmup']} warmup + {c['draws']} draws), target accept {c.get('adapt_delta', c.get('target_accept'))}"
+    elif b == "nimble":
+        desc = f"{c['chains']} chains × ({c['warmup']} burn-in + {c['draws']} iterations), thin {c['thin']}, AF_slice on all parameters jointly"
+    else:
+        desc = (f"{c['chains']} DEzs runs × 3 internal chains; {c['iterations']} iterations per run "
+                f"(first {c['burnin']} discarded), thin {c['thin']}. Each internal chain is reported as a chain.")
+    rows.append([LABEL[b], desc])
+show_table(pd.DataFrame(rows, columns=["Backend", "Settings"]))
+```
+
+**Initial values** are the same in every backend: $N=1.5$, $\sigma=0.01$, and
+$C_j = \exp(\mu_j + u_j)$ with $u_j\sim U(-0.5, 0.5)$, drawn with one seed per
+chain. ESS and $\hat R$ (rank-normalized) are computed with ArviZ from each
+backend's saved draws. The posterior predictive spectra are recomputed with the
+NumPy reference model from 400 random draws per fit.
+
+## Software versions
+
+```{python}
+import glob
+vers = {}
+for f in glob.glob(str(ROOT / "results/fits/*/iid/*/meta.json")):
+    m = json.load(open(f))
+    v = m.get("software", {})
+    vers[m["backend"]] = "; ".join(f"{k} {val}" for k, val in v.items()) + f" — {m.get('platform', '')}"
+show_table(pd.DataFrame([[LABEL[b], vers.get(b, "")] for b in BACKENDS], columns=["Backend", "Versions"]))
+```
+
+## References
+
+* Allen, W. A., Gausman, H. W., Richardson, A. J., & Thomas, J. R. (1969). Interaction of isotropic light with a compact plant leaf. *JOSA* 59, 1376.
+* Féret, J.-B., Gitelson, A. A., Noble, S. D., & Jacquemoud, S. (2017). PROSPECT-D: Towards modeling leaf optical properties through a complete lifecycle. *Remote Sensing of Environment* 193, 204–215.
+* Stern, F. (1964). Transmission of isotropic radiation across an interface between two dielectrics. *Applied Optics* 3, 111.
+* Swamee, P. K., & Ohija, C. S. P. (2003). Approximations for the exponential integral (Theis well function). *J. Hydrologic Engineering* 8, 197.
+* Hartig, F., Minunno, F., & Paul, S. (2019). BayesianTools: General-purpose MCMC and SMC samplers and tools for Bayesian statistics. R package.
