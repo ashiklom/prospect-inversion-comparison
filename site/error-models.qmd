@@ -207,6 +207,8 @@ if have:
     phi_med = float(e["phi"].median())
 else:
     phi_med = float("nan")
+t_har = F[(F.backend == "stan") & (F.errmodel == "hetero_ar1")]["time_sampling_s"].median()
+t_iid = F[(F.backend == "stan") & (F.errmodel == "iid")]["time_sampling_s"].median()
 ```
 
 **Takeaways.**
@@ -218,7 +220,10 @@ else:
 * Trait intervals widen a lot, and coverage of the measured traits improves
   accordingly. The posterior medians move too, because the AR(1) likelihood
   weights smooth, broad features over individual bands.
-* The cost is about the same as iid: the extra work is $O(n)$ arithmetic.
+* Each log-density evaluation costs about the same as iid (the extra work is
+  $O(n)$ arithmetic), but the posterior geometry is harder: median Stan
+  sampling time is `{python} f"{t_har:.0f}"` s vs. `{python} f"{t_iid:.0f}"` s
+  for iid, mostly from deeper NUTS trees.
 * What AR(1) does **not** fix: the discrepancy has structure that is shared
   across leaves (the blue mean residual above), which a stationary zero-mean
   process cannot represent. That is the motivation for models D and E above.
