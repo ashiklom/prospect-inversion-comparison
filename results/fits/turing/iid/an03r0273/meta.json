@@ -1,0 +1,32 @@
+{
+    "n_wavelengths": 2051,
+    "e1": "exact",
+    "platform": "Julia 1.13.2",
+    "errmodel": "iid",
+    "divergences": 0,
+    "backend": "turing",
+    "version": "prospectd",
+    "constituents": [
+        "Cab",
+        "Car",
+        "Canth",
+        "Cbrown",
+        "Cw",
+        "Cm"
+    ],
+    "software": {
+        "Turing": "0.49.0",
+        "ad_backend": "ForwardDiff"
+    },
+    "timestamp": "2026-10-25T00:09:40.628",
+    "time_setup_s": 14.554217834,
+    "max_treedepth_hits": null,
+    "time_sampling_s": 290.525853531,
+    "settings": {
+        "chains": 4,
+        "draws": 1000,
+        "target_accept": 0.9,
+        "warmup": 1000
+    },
+    "sample_id": "an03r0273"
+}

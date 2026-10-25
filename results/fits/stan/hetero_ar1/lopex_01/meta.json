@@ -1,0 +1,26 @@
+{
+  "backend": "stan",
+  "sample_id": "lopex_01",
+  "errmodel": "hetero_ar1",
+  "e1": "exact",
+  "version": "prospectd",
+  "n_wavelengths": 2101,
+  "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"],
+  "settings": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "adapt_delta": 0.9
+  },
+  "time_setup_s": 46.51,
+  "time_sampling_s": 635.504,
+  "timestamp": "2026-10-24T23:50:36+0000",
+  "platform": "R version 4.5.3 (2026-03-11)",
+  "divergences": 0,
+  "max_treedepth_hits": 0,
+  "time_per_chain_s": [151.886, 178.398, 153.397, 150.914],
+  "software": {
+    "cmdstan": "2.40.0",
+    "cmdstanr": "0.9.0"
+  }
+}
