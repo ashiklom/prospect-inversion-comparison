@@ -44,8 +44,9 @@ for i, p in enumerate(MEAS):
             hovertemplate=("%{customdata[0]}<br>measured %{customdata[1]:.3g}<br>median %{y:.3g}"
                            "<br>90% CI %{customdata[2]:.3g} – %{customdata[3]:.3g}<extra>" + LABEL[b] + "</extra>")),
             r, c)
-    fig.update_xaxes(type="log", title_text="measured", row=r, col=c)
-    fig.update_yaxes(type="log", title_text="posterior", row=r, col=c)
+    tv = log_ticks(lo / 1.5, hi * 1.5)
+    fig.update_xaxes(type="log", title_text="measured", tickvals=tv, ticktext=[f"{v:g}" for v in tv], row=r, col=c)
+    fig.update_yaxes(type="log", title_text="posterior", tickvals=tv, ticktext=[f"{v:g}" for v in tv], row=r, col=c)
 fig.update_layout(height=760, legend=dict(orientation="h", y=1.08, x=0))
 show(fig)
 ```

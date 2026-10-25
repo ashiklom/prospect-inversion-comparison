@@ -71,9 +71,26 @@ show(fig)
 * **Single-threaded likelihood.** Nothing here uses within-chain parallelism.
   The forward model is a few thousand elementwise operations, so gradient
   bookkeeping and per-evaluation overhead dominate the cost.
-* **Setup time.** Stan and NIMBLE compile C++ (cached between runs for Stan).
-  Turing's figure is Julia JIT compilation. PyMC compiles the PyTensor graph
-  with numba. BayesianTools has none.
+* **Setup time.** Stan compiles each model to C++ once (about 45 s), and
+  `make` reuses the cached executable, so per-fit setup is about 0. NIMBLE
+  regenerates and compiles C++ for every fit (about 45 s). Turing's figure is
+  Julia JIT compilation, paid once per Julia session. PyMC compiles the
+  PyTensor graph with numba (about 6 s). BayesianTools has no setup cost.
+
+::: {.callout-warning}
+## A BayesianTools convergence failure
+
+On `an03r0185` (white/variegated *Cornus*, Cab ≈ 0.8, Car = 0), one of the four
+DEzs runs got stuck. All three of its internal chains stayed in a region with a
+much worse fit (σ ≈ 0.02 vs. 0.007), with near-zero pigments, for all 60,000
+iterations. DEzs internal chains share a population archive, so they can stall
+together, and they sample the constituents on their natural scale, where values
+near zero span orders of magnitude. The other 9 chains agree with every other
+backend. Practical fixes are to sample $\log C$ instead of $C$ (a
+reparameterization, not a model change), use more and longer runs, or start
+from more dispersed points. None of the NUTS fits or the NIMBLE slice-sampler
+fits had this problem.
+:::
 
 ```{python}
 #| label: tbl-geometry
@@ -212,7 +229,12 @@ Across all spectra, the approximate $E_1$ moves posterior medians by at most
 `{python} f"{zmax:.2f}"` posterior SDs (`{python} f"{100*relmax:.2f}%"` in
 relative terms). The median Stan sampling time is
 `{python} f"{t_ap:.0f}"` s with the approximation vs.
-`{python} f"{t_ex:.0f}"` s with the exact $E_1$. Under the iid model the
+`{python} f"{t_ex:.0f}"` s with the exact $E_1$. The "cheap" closed form is
+actually *slower* in Stan. Autodiff has to record and differentiate its
+log, pow and exp operations for every band, whereas the exact version
+evaluates Boost's $E_1$ and attaches the one-line analytic gradient
+$-e^{-x}/x$ as a single callback. A library function with a hand-supplied
+derivative is the better design when the DSL allows it. Under the iid model the
 posterior SDs are unrealistically small (see [Traits](traits.qmd)), so even
 these shifts overstate the approximation's practical importance. Under a
 realistic error model they would be negligible.

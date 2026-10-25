@@ -243,7 +243,7 @@ window.Quarto = {
 </header>
 
 
-<div id="da2244e0" class="cell" data-execution_count="1">
+<div id="6985b6a3" class="cell" data-execution_count="1">
 <div class="cell-output cell-output-display">
 <script type="module">
     const { set_or_remove_dark_class } = await window._itables_2_9_1;
@@ -351,9 +351,9 @@ This is the <code>init_notebook_mode</code> cell from ITables v2.9.1<br>
 <li><strong>Python / PyMC</strong> (NUTS, PyTensor)</li>
 </ul>
 <p>Each toolchain has its own PROSPECT implementation, verified against a common reference to machine precision. All five fit the same model to the same leaves, so the comparison isolates the toolchain. The fits are checked against measured leaf traits and against <strong>held-out leaf transmittance</strong>.</p>
-<div id="0d14dda3" class="cell" data-execution_count="2">
+<div id="1678bc4a" class="cell" data-execution_count="2">
 <div class="cell-output cell-output-display">
-<div class="stat-row"><div class="stat"><div class="label">Spectra fitted</div><div class="value">4</div><div class="sub">10 LOPEX/ANGERS leaves + 1 synthetic</div></div><div class="stat"><div class="label">Backends</div><div class="value">5</div><div class="sub">same model, priors, data, inits</div></div><div class="stat"><div class="label">Forward models agree</div><div class="value">✓ ≤ 1e-15</div><div class="sub">vs. NumPy reference, both E₁ modes</div></div><div class="stat"><div class="label">Most efficient</div><div class="value">PyMC</div><div class="sub">median 20.2 worst-param ESS/s</div></div><div class="stat"><div class="label">Measured traits inside 90% CI</div><div class="value">17%</div><div class="sub">iid error model → over-confident</div></div></div>
+<div class="stat-row"><div class="stat"><div class="label">Spectra fitted</div><div class="value">11</div><div class="sub">10 LOPEX/ANGERS leaves + 1 synthetic</div></div><div class="stat"><div class="label">Backends</div><div class="value">5</div><div class="sub">same model, priors, data, inits</div></div><div class="stat"><div class="label">Forward models agree</div><div class="value">✓ ≤ 1e-15</div><div class="sub">vs. NumPy reference, both E₁ modes</div></div><div class="stat"><div class="label">Most efficient</div><div class="value">PyMC</div><div class="sub">median 17.5 worst-param ESS/s</div></div><div class="stat"><div class="label">Measured traits inside 90% CI</div><div class="value">10%</div><div class="sub">iid error model → over-confident</div></div></div>
 </div>
 </div>
 <section id="headline-comparison" class="level2">
@@ -362,12 +362,12 @@ This is the <code>init_notebook_mode</code> cell from ITables v2.9.1<br>
 <div id="tbl-headline" class="cell quarto-float quarto-figure quarto-figure-center anchored" data-execution_count="3">
 <figure class="quarto-float quarto-float-tbl figure">
 <figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-headline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
-Table&nbsp;1: Per backend, medians across spectra (iid error model, exact E₁). Trait RMSE is relative: median |posterior median − measured| / measured over Cab, Car, EWT and LMA. T is held-out transmittance.
+Table&nbsp;1: Per backend, medians across spectra (iid error model, exact E₁). Setup is per fit: Stan’s ~45 s compile happens once per model and is cached, so it shows as ~0 here. Relative trait error is the median of |posterior median − measured| / measured over Cab, Car, EWT and LMA. T is held-out transmittance.
 </figcaption>
 <div aria-describedby="tbl-headline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
 <div class="cell-output cell-output-display">
 <!--| quarto-html-table-processing: none -->
-<table id="itables_14c32e2f_236d_4f60_bc89_aee7437171a4" hidden="hidden">
+<table id="itables_dcbb92e6_a606_49f4_a53d_23498ad86860" hidden="hidden">
   <tbody>
     <tr>
       <td style="vertical-align:middle; text-align:left"><a href="https://itables.org/"><svg class="main-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="64" viewbox="0 0 500 400" style="font-family: 'Droid Sans', sans-serif;">
@@ -433,7 +433,7 @@ Table&nbsp;1: Per backend, medians across spectra (iid error model, exact E₁).
     </tr>
   </tbody>
 </table>
-<div id="itables_14c32e2f_236d_4f60_bc89_aee7437171a4_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
+<div id="itables_dcbb92e6_a606_49f4_a53d_23498ad86860_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
       <th style="border:1px solid #ddd;padding:8px"><sup><noscript><span title="JavaScript not allowed. Please trust this notebook to get interactive tables.">🔒</span></noscript><a href="https://itables.org/fallbacks/static_preview.html" title="ITables v2.9.1 static preview">ⓘ</a></sup>Backend</th>
       <th style="border:1px solid #ddd;padding:8px">Sampler</th>
       <th style="border:1px solid #ddd;padding:8px">Sampling time (s)</th>
@@ -445,28 +445,29 @@ Table&nbsp;1: Per backend, medians across spectra (iid error model, exact E₁).
       <th style="border:1px solid #ddd;padding:8px">T RMSE</th>
       <th style="border:1px solid #ddd;padding:8px">T 90% coverage</th>
     </tr></thead><tbody>
-<tr><td style="border:1px solid #ddd;padding:8px">Stan</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">315</td><td style="border:1px solid #ddd;padding:8px">48.4</td><td style="border:1px solid #ddd;padding:8px">6.91</td><td style="border:1px solid #ddd;padding:8px">1</td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td></tr>
-<tr><td style="border:1px solid #ddd;padding:8px">PyMC</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">127</td><td style="border:1px solid #ddd;padding:8px">5.76</td><td style="border:1px solid #ddd;padding:8px">20.2</td><td style="border:1px solid #ddd;padding:8px">1</td><td style="border:1px solid #ddd;padding:8px">0.106</td><td style="border:1px solid #ddd;padding:8px">0.182</td><td style="border:1px solid #ddd;padding:8px">0.0403</td><td style="border:1px solid #ddd;padding:8px">0.0483</td></tr>
-<tr><td style="border:1px solid #ddd;padding:8px">Turing.jl</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">325</td><td style="border:1px solid #ddd;padding:8px">14.8</td><td style="border:1px solid #ddd;padding:8px">6.72</td><td style="border:1px solid #ddd;padding:8px">1</td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td></tr>
-<tr><td style="border:1px solid #ddd;padding:8px">NIMBLE</td><td style="border:1px solid #ddd;padding:8px">AF slice</td><td style="border:1px solid #ddd;padding:8px">595</td><td style="border:1px solid #ddd;padding:8px">43.9</td><td style="border:1px solid #ddd;padding:8px">6.41</td><td style="border:1px solid #ddd;padding:8px">1</td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td></tr>
-<tr><td style="border:1px solid #ddd;padding:8px">BayesianTools</td><td style="border:1px solid #ddd;padding:8px">DEzs</td><td style="border:1px solid #ddd;padding:8px">195</td><td style="border:1px solid #ddd;padding:8px">0</td><td style="border:1px solid #ddd;padding:8px">14.1</td><td style="border:1px solid #ddd;padding:8px">1</td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td><td style="border:1px solid #ddd;padding:8px"></td></tr>
-</tbody></table></div><script>document.getElementById("itables_14c32e2f_236d_4f60_bc89_aee7437171a4")?.removeAttribute("hidden");document.getElementById("itables_14c32e2f_236d_4f60_bc89_aee7437171a4_fallback")?.setAttribute("hidden", "hidden");</script>
+<tr><td style="border:1px solid #ddd;padding:8px">Stan</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">363</td><td style="border:1px solid #ddd;padding:8px">0.057</td><td style="border:1px solid #ddd;padding:8px">5.72</td><td style="border:1px solid #ddd;padding:8px">1.006</td><td style="border:1px solid #ddd;padding:8px">0.201</td><td style="border:1px solid #ddd;padding:8px">0.103</td><td style="border:1px solid #ddd;padding:8px">0.045</td><td style="border:1px solid #ddd;padding:8px">0.22</td></tr>
+<tr><td style="border:1px solid #ddd;padding:8px">PyMC</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">153</td><td style="border:1px solid #ddd;padding:8px">5.94</td><td style="border:1px solid #ddd;padding:8px">17.5</td><td style="border:1px solid #ddd;padding:8px">1.008</td><td style="border:1px solid #ddd;padding:8px">0.201</td><td style="border:1px solid #ddd;padding:8px">0.103</td><td style="border:1px solid #ddd;padding:8px">0.0451</td><td style="border:1px solid #ddd;padding:8px">0.216</td></tr>
+<tr><td style="border:1px solid #ddd;padding:8px">Turing.jl</td><td style="border:1px solid #ddd;padding:8px">NUTS</td><td style="border:1px solid #ddd;padding:8px">318</td><td style="border:1px solid #ddd;padding:8px">14.9</td><td style="border:1px solid #ddd;padding:8px">6.87</td><td style="border:1px solid #ddd;padding:8px">1.005</td><td style="border:1px solid #ddd;padding:8px">0.201</td><td style="border:1px solid #ddd;padding:8px">0.103</td><td style="border:1px solid #ddd;padding:8px">0.045</td><td style="border:1px solid #ddd;padding:8px">0.218</td></tr>
+<tr><td style="border:1px solid #ddd;padding:8px">NIMBLE</td><td style="border:1px solid #ddd;padding:8px">AF slice</td><td style="border:1px solid #ddd;padding:8px">568</td><td style="border:1px solid #ddd;padding:8px">45.4</td><td style="border:1px solid #ddd;padding:8px">6.42</td><td style="border:1px solid #ddd;padding:8px">1.002</td><td style="border:1px solid #ddd;padding:8px">0.201</td><td style="border:1px solid #ddd;padding:8px">0.103</td><td style="border:1px solid #ddd;padding:8px">0.0451</td><td style="border:1px solid #ddd;padding:8px">0.218</td></tr>
+<tr><td style="border:1px solid #ddd;padding:8px">BayesianTools</td><td style="border:1px solid #ddd;padding:8px">DEzs</td><td style="border:1px solid #ddd;padding:8px">168</td><td style="border:1px solid #ddd;padding:8px">0</td><td style="border:1px solid #ddd;padding:8px">11.5</td><td style="border:1px solid #ddd;padding:8px">1.690</td><td style="border:1px solid #ddd;padding:8px">0.201</td><td style="border:1px solid #ddd;padding:8px">0.128</td><td style="border:1px solid #ddd;padding:8px">0.0448</td><td style="border:1px solid #ddd;padding:8px">0.314</td></tr>
+</tbody></table></div><script>document.getElementById("itables_dcbb92e6_a606_49f4_a53d_23498ad86860")?.removeAttribute("hidden");document.getElementById("itables_dcbb92e6_a606_49f4_a53d_23498ad86860_fallback")?.setAttribute("hidden", "hidden");</script>
 <script type="module">
     (async () => {
         async function init() {
             const { ITable, jQuery: $ } = await window._itables_2_9_1;
 
-            document.querySelectorAll("#itables_14c32e2f_236d_4f60_bc89_aee7437171a4:not(.dataTable)").forEach(table => {
+            document.querySelectorAll("#itables_dcbb92e6_a606_49f4_a53d_23498ad86860:not(.dataTable)").forEach(table => {
                 if (!(table instanceof HTMLTableElement))
                     return;
 
                 let dt_args = {
           "classes": ["display", "compact"],
-          "data_json": "[[\"Stan\", \"NUTS\", \"315\", \"48.4\", \"6.91\", \"1\", \"\", \"\", \"\", \"\"], [\"PyMC\", \"NUTS\", \"127\", \"5.76\", \"20.2\", \"1\", \"0.106\", \"0.182\", \"0.0403\", \"0.0483\"], [\"Turing.jl\", \"NUTS\", \"325\", \"14.8\", \"6.72\", \"1\", \"\", \"\", \"\", \"\"], [\"NIMBLE\", \"AF slice\", \"595\", \"43.9\", \"6.41\", \"1\", \"\", \"\", \"\", \"\"], [\"BayesianTools\", \"DEzs\", \"195\", \"0\", \"14.1\", \"1\", \"\", \"\", \"\", \"\"]]",
+          "data_json": "[[\"Stan\", \"NUTS\", \"363\", \"0.057\", \"5.72\", \"1.006\", \"0.201\", \"0.103\", \"0.045\", \"0.22\"], [\"PyMC\", \"NUTS\", \"153\", \"5.94\", \"17.5\", \"1.008\", \"0.201\", \"0.103\", \"0.0451\", \"0.216\"], [\"Turing.jl\", \"NUTS\", \"318\", \"14.9\", \"6.87\", \"1.005\", \"0.201\", \"0.103\", \"0.045\", \"0.218\"], [\"NIMBLE\", \"AF slice\", \"568\", \"45.4\", \"6.42\", \"1.002\", \"0.201\", \"0.103\", \"0.0451\", \"0.218\"], [\"BayesianTools\", \"DEzs\", \"168\", \"0\", \"11.5\", \"1.690\", \"0.201\", \"0.128\", \"0.0448\", \"0.314\"]]",
           "layout": {"bottomEnd": null, "bottomStart": null, "topEnd": null, "topStart": null},
           "order": [],
           "paging": false,
-          "style": {"caption-side": "bottom", "margin": "auto", "table-layout": "auto", "width": "auto"},
+          "scrollX": true,
+          "style": {"caption-side": "bottom", "margin": "0", "table-layout": "auto", "width": "auto"},
           "table_html": "<table><thead>\n    <tr style=\"text-align: right;\">\n      \n      <th>Backend</th>\n      <th>Sampler</th>\n      <th>Sampling time (s)</th>\n      <th>Setup / compile (s)</th>\n      <th>Worst-param ESS/s</th>\n      <th>Max R\u0302</th>\n      <th>Median rel. trait error</th>\n      <th>Trait 90% coverage</th>\n      <th>T RMSE</th>\n      <th>T 90% coverage</th>\n    </tr>\n  </thead></table>",
           "text_in_header_can_be_selected": true
         };
@@ -492,11 +493,11 @@ Table&nbsp;1: Per backend, medians across spectra (iid error model, exact E₁).
 <section id="main-findings" class="level2">
 <h2 class="anchored" data-anchor-id="main-findings">Main findings</h2>
 <ol type="1">
-<li><strong>All five toolchains recover the same posterior.</strong> Medians agree within Monte Carlo error on every spectrum and parameter. On the synthetic leaf all recover the true parameters. Worst <span class="math inline">\(\hat R\)</span> over all iid fits: 1.004. See <a href="./backends.html">Backends</a>.</li>
-<li><strong>Efficiency differs more than accuracy.</strong> Gradient-based NUTS (PyMC, Stan, Turing) and gradient-free samplers (NIMBLE’s AF-slice, BayesianTools’ DEzs) all converge on this 7-parameter problem, but ESS per second varies by roughly an order of magnitude. Compile and JIT overheads (Stan, NIMBLE, Julia) also matter for single-leaf workflows.</li>
-<li><strong>Exact vs.&nbsp;approximate <span class="math inline">\(E_1\)</span> hardly matters.</strong> The Swamee–Ohija closed form changes R and T by ≲ 8×10⁻⁴ and shifts posteriors by a fraction of a posterior SD. Its τ &lt; 0 failure (k &gt; 11.6) does occur in strong water bands, so it needs the usual clamp at 0. See <a href="./verification.html">Forward model</a>.</li>
-<li><strong>The iid error model is the weak link, not the sampler.</strong> Residuals are smooth, autocorrelated over tens of nm, much larger than replicate noise, and shared across leaves. As a result trait intervals are over-confident and held-out transmittance is poorly covered. A heteroskedastic AR(1) likelihood (exact, <span class="math inline">\(O(n)\)</span>) helps, and a library-learned discrepancy model is the recommended next step. See <a href="./error-models.html">Error models</a>.</li>
-<li><strong>A bug fix along the way.</strong> The PROSPECT-D <code>t21</code> in <code>rrtm</code> used the wrong refractive index; fixed in <a href="https://github.com/ashiklom/rrtm/pull/10">ashiklom/rrtm#10</a>.</li>
+<li><p><strong>The toolchains recover the same posterior.</strong> On every spectrum and parameter, posterior medians agree within Monte Carlo error (max R̂ = 1.009), and on the synthetic leaf all five recover the true parameters. There is one exception: BayesianTools on an03r0185 (R̂ = 1.69). One of BayesianTools’ four DEzs runs got stuck, all 3 of its internal chains together, at a much worse fit (σ ≈ 0.02 vs 0.007) on the white leaf, whose pigments sit near zero. Its other 9 chains agree with the NUTS and slice samplers. Separately, BayesianTools on an03r0271 reached R̂ = 1.011 (borderline; ESS is adequate). See <a href="./backends.html">Backends</a>.</p></li>
+<li><p><strong>Efficiency differs more than accuracy.</strong> The median worst-parameter ESS/s ranges from 5.7 to 17.5. PyMC is fastest, then BayesianTools; Stan, Turing and NIMBLE are close together. The NUTS backends slow down about 5× on the thickest, wettest leaves, where N, Cw and Cm are strongly correlated. The gradient-free samplers keep a fixed cost per iteration. Compilation and JIT time (Stan about 45 s once per model, NIMBLE about 45 s per fit, Julia about 15 s per session) matter for single-leaf workflows.</p></li>
+<li><p><strong>Exact vs.&nbsp;approximate <span class="math inline">\(E_1\)</span> hardly matters.</strong> The Swamee–Ohija closed form changes R and T by ≲ 8×10⁻⁴ and shifts posteriors by a fraction of a posterior SD. Its τ &lt; 0 failure (k &gt; 11.6) does occur in strong water bands, so it needs the usual clamp at 0. See <a href="./verification.html">Forward model</a>.</p></li>
+<li><p><strong>The iid error model is the weak link, not the sampler.</strong> Residuals are smooth, autocorrelated over tens of nm, several times the replicate noise, and shared across leaves. Under iid errors only 4/40 measured trait values fall inside the 90% intervals, and held-out transmittance coverage is 27%. A heteroskedastic AR(1) likelihood (exact, <span class="math inline">\(O(n)\)</span>) raises these to 12/40 and 76%, and also improves held-out T RMSE (0.053 → 0.040). Its AR coefficient runs into φ → 1, though, which points to smoother GP or library-learned discrepancy models as the next step. See <a href="./error-models.html">Error models</a>.</p></li>
+<li><p><strong>A bug fix along the way.</strong> The PROSPECT-D <code>t21</code> in <code>rrtm</code> used the wrong refractive index; fixed in <a href="https://github.com/ashiklom/rrtm/pull/10">ashiklom/rrtm#10</a>.</p></li>
 </ol>
 </section>
 <section id="reproducing" class="level2">

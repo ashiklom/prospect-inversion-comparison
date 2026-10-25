@@ -111,4 +111,15 @@ def fmt_table(df: pd.DataFrame, digits: int = 3) -> pd.DataFrame:
 def show_table(df: pd.DataFrame, **kwargs):
     from itables import show
     show(df.reset_index(drop=True), classes="display compact", paging=len(df) > 15, showIndex=False,
-         scrollX=True, **kwargs)
+         scrollX=True, maxBytes=0, **kwargs)
+
+
+def log_ticks(lo, hi):
+    """1-2-5 tick values covering [lo, hi] for log axes (avoids crowded minor labels)."""
+    vals = []
+    for e in range(int(np.floor(np.log10(lo))) - 1, int(np.ceil(np.log10(hi))) + 1):
+        for m in (1, 2, 5):
+            v = m * 10.0**e
+            if lo <= v <= hi:
+                vals.append(v)
+    return vals

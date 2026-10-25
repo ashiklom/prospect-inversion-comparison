@@ -170,8 +170,9 @@ for i, p in enumerate(MEAS):
             customdata=np.c_[d["sample_id"], d["q05"], d["q95"]],
             hovertemplate="%{customdata[0]}<br>measured %{x:.3g}<br>median %{y:.3g}<br>90% CI %{customdata[1]:.3g}–%{customdata[2]:.3g}<extra>" + lab + "</extra>"),
             r, c)
-    fig.update_xaxes(type="log", title_text="measured", row=r, col=c)
-    fig.update_yaxes(type="log", title_text="posterior", row=r, col=c)
+    tv = log_ticks(lo / 1.5, hi * 1.5)
+    fig.update_xaxes(type="log", title_text="measured", tickvals=tv, ticktext=[f"{v:g}" for v in tv], row=r, col=c)
+    fig.update_yaxes(type="log", title_text="posterior", tickvals=tv, ticktext=[f"{v:g}" for v in tv], row=r, col=c)
 fig.update_layout(height=740, legend=dict(orientation="h", y=1.08, x=0))
 if have:
     show(fig)
@@ -226,6 +227,11 @@ t_iid = F[(F.backend == "stan") & (F.errmodel == "iid")]["time_sampling_s"].medi
 * Trait intervals widen a lot, and coverage of the measured traits improves
   accordingly. The posterior medians move too, because the AR(1) likelihood
   weights smooth, broad features over individual bands.
+* It predicts the **held-out transmittance better**, not just more
+  cautiously: both T RMSE and T coverage improve (table above). The
+  in-sample reflectance RMSE gets *worse*, because the model no longer chases
+  every band. That is the right trade-off, since the iid fit was over-fitting
+  structured residuals.
 * Each log-density evaluation costs about the same as iid (the extra work is
   $O(n)$ arithmetic), but the posterior geometry is harder: median Stan
   sampling time is `{python} f"{t_har:.0f}"` s vs. `{python} f"{t_iid:.0f}"` s

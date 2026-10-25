@@ -94,7 +94,8 @@ def main():
             "backend": backend, "errmodel": errtag, "sample_id": sample,
             "e1": meta.get("e1"), "n_chains": n_chains, "n_draws": len(d),
             "time_setup_s": meta.get("time_setup_s"), "time_sampling_s": t_samp,
-            "divergences": meta.get("divergences"),
+            # NA for gradient-free samplers (older runs wrote {} for NULL)
+            "divergences": meta["divergences"] if isinstance(meta.get("divergences"), (int, float)) else None,
             "mean_leapfrog": meta.get("mean_leapfrog"),
             "median_stepsize": meta.get("median_stepsize"),
             "max_rhat": max(rhats[p] for p in params),

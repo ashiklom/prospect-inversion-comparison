@@ -50,7 +50,7 @@ display(HTML(html))
 
 ```{python}
 #| label: tbl-headline
-#| tbl-cap: "Per backend, medians across spectra (iid error model, exact E₁). Trait RMSE is relative: median |posterior median − measured| / measured over Cab, Car, EWT and LMA. T is held-out transmittance."
+#| tbl-cap: "Per backend, medians across spectra (iid error model, exact E₁). Setup is per fit: Stan's ~45 s compile happens once per model and is cached, so it shows as ~0 here. Relative trait error is the median of |posterior median − measured| / measured over Cab, Car, EWT and LMA. T is held-out transmittance."
 rows = []
 for b in present:
     f = fi[fi["backend"] == b]
@@ -75,29 +75,62 @@ show_table(fmt_table(pd.DataFrame(rows), 3))
 ## Main findings
 
 ```{python}
-t = fi.groupby("backend")["time_sampling_s"].median()
-rh = fi["max_rhat"].max()
+bad = fi[fi["max_rhat"] > 1.05]
+marg = fi[(fi["max_rhat"] > 1.01) & (fi["max_rhat"] <= 1.05)]
+good_rh = fi[fi["max_rhat"] <= 1.01]["max_rhat"].max()
+bad_desc = "; ".join(f"{LABEL[r.backend]} on {r.sample_id} (R̂ = {r.max_rhat:.2f})" for r in bad.itertuples())
+exc = ("one exception" if len(bad) == 1 else f"{len(bad)} exceptions") + f": {bad_desc}"
+marg_desc = ("; ".join(f"{LABEL[r.backend]} on {r.sample_id} reached R̂ = {r.max_rhat:.3f}" for r in marg.itertuples())
+             + " (borderline; ESS is adequate)") if len(marg) else ""
+eff_lo, eff_hi = eff.min(), eff.max()
+slow = fi.pivot(index="sample_id", columns="backend", values="time_sampling_s")
+thick = ["lopex_24", "an03r0271"]
+nuts_ratio = (slow.loc[thick, ["stan", "pymc", "turing"]].mean() /
+              slow.drop(index=thick + ["synthetic"])[["stan", "pymc", "turing"]].median()).mean()
 ```
 
-1. **All five toolchains recover the same posterior.** Medians agree within
-   Monte Carlo error on every spectrum and parameter. On the synthetic leaf all
-   recover the true parameters. Worst $\hat R$ over all iid fits:
-   `{python} f"{rh:.3f}"`. See [Backends](backends.qmd).
-2. **Efficiency differs more than accuracy.** Gradient-based NUTS (PyMC,
-   Stan, Turing) and gradient-free samplers (NIMBLE's AF-slice,
-   BayesianTools' DEzs) all converge on this 7-parameter problem, but ESS per
-   second varies by roughly an order of magnitude. Compile and JIT overheads
-   (Stan, NIMBLE, Julia) also matter for single-leaf workflows.
+1. **The toolchains recover the same posterior.** On every spectrum and
+   parameter, posterior medians agree within Monte Carlo error (max R̂ =
+   `{python} f"{good_rh:.3f}"`), and on the synthetic leaf all five recover the
+   true parameters. There is `{python} exc`. One of BayesianTools' four DEzs runs got stuck, all 3
+   of its internal chains together, at a much worse fit (σ ≈ 0.02 vs 0.007)
+   on the white leaf, whose pigments sit near zero. Its other 9 chains agree
+   with the NUTS and slice samplers. Separately, `{python} marg_desc`. See
+   [Backends](backends.qmd).
+2. **Efficiency differs more than accuracy.** The median worst-parameter
+   ESS/s ranges from `{python} f"{eff_lo:.1f}"` to `{python} f"{eff_hi:.1f}"`.
+   PyMC is fastest, then BayesianTools; Stan, Turing and NIMBLE are close
+   together. The NUTS backends slow down about `{python} f"{nuts_ratio:.0f}"`×
+   on the thickest, wettest leaves, where N, Cw and Cm are strongly
+   correlated. The gradient-free samplers keep a fixed cost per iteration.
+   Compilation and JIT time (Stan about 45 s once per model, NIMBLE about 45 s
+   per fit, Julia about 15 s per session) matter for single-leaf workflows.
 3. **Exact vs. approximate $E_1$ hardly matters.** The Swamee–Ohija closed form
    changes R and T by ≲ 8×10⁻⁴ and shifts posteriors by a fraction of a
    posterior SD. Its τ < 0 failure (k > 11.6) does occur in strong water bands,
    so it needs the usual clamp at 0. See [Forward model](verification.qmd).
+```{python}
+def cov_T(e):
+    v = V[(V.backend == "stan") & (V.errmodel == e) & (V.region == "All") & (V.quantity == "T") & (V.sample_id != "synthetic")]
+    return v["coverage90"].mean(), v["rmse"].mean()
+def cov_trait(e):
+    d = P[(P.backend == "stan") & (P.errmodel == e) & P.param.isin(["Cab", "Car", "Cw", "Cm"]) & P.measured.notna() & (P.sample_id != "synthetic")]
+    return int(d.covered90.sum()), len(d)
+ti, tr_i = cov_T("iid"), cov_trait("iid")
+th, tr_h = cov_T("hetero_ar1"), cov_trait("hetero_ar1")
+```
+
 4. **The iid error model is the weak link, not the sampler.** Residuals are
-   smooth, autocorrelated over tens of nm, much larger than replicate noise, and
-   shared across leaves. As a result trait intervals are over-confident and
-   held-out transmittance is poorly covered. A heteroskedastic AR(1) likelihood
-   (exact, $O(n)$) helps, and a library-learned discrepancy model is the
-   recommended next step. See [Error models](error-models.qmd).
+   smooth, autocorrelated over tens of nm, several times the replicate noise,
+   and shared across leaves. Under iid errors only
+   `{python} f"{tr_i[0]}/{tr_i[1]}"` measured trait values fall inside the 90%
+   intervals, and held-out transmittance coverage is
+   `{python} f"{100*ti[0]:.0f}%"`. A heteroskedastic AR(1) likelihood (exact,
+   $O(n)$) raises these to `{python} f"{tr_h[0]}/{tr_h[1]}"` and
+   `{python} f"{100*th[0]:.0f}%"`, and also improves held-out T RMSE
+   (`{python} f"{ti[1]:.3f}"` → `{python} f"{th[1]:.3f}"`). Its AR coefficient
+   runs into φ → 1, though, which points to smoother GP or library-learned
+   discrepancy models as the next step. See [Error models](error-models.qmd).
 5. **A bug fix along the way.** The PROSPECT-D `t21` in `rrtm` used the wrong
    refractive index; fixed in [ashiklom/rrtm#10](https://github.com/ashiklom/rrtm/pull/10).
 
