@@ -205,6 +205,22 @@ and the draws look like a plausible but wrong posterior. The first version of
 the five reference backends.
 :::
 
+::: {.callout-note collapse="true"}
+## Two Numba pitfalls when giving a PyTensor Op its own kernel
+
+1. **Error model.** Numba's default `error_model="python"` raises a Python
+   `ZeroDivisionError` on float division by zero. A NUTS trajectory that
+   briefly reaches $k \to 0$ or $\infty$ then crashes the whole fit instead
+   of being rejected. One `pm.sample` fit did exactly that. The kernels now use
+   `error_model="numpy"` (inf/NaN, which the sampler rejects) and no
+   `fastmath`, which would let LLVM assume every input is finite.
+2. **Stale cache.** PyTensor caches compiled Numba kernels on disk, keyed by
+   the Op's type and properties but *not* its code. Editing a kernel therefore
+   silently keeps the old one until the cache key is salted. The kernels return
+   `(fn, version)` from `register_funcify_default_op_cache_key`. Every fast-E₁
+   fit that used Numba was re-run after this fix.
+:::
+
 ## Would a GPU (JAX) help?
 
 *This section is reasoning, not measurement: no GPU was available.*

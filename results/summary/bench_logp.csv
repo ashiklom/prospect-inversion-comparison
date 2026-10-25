@@ -1,13 +1,13 @@
 what,framework,e1,us,n_wavelengths,sample_id,software
-E1 only,numba,exact,185.1120810000566,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-E1 only,JAX,exact,5827.540101000068,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,numba,exact,686.5260649999527,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,JAX,exact,6650.090043332663,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-E1 only,numba,fast,72.42600500001117,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-E1 only,JAX,fast,167.04440449996127,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,numba,fast,537.2826949999308,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,JAX,fast,772.9230209999969,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-E1 only,numba,approx,145.45604249997268,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-E1 only,JAX,approx,248.95644149989946,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,numba,approx,1115.80555799992,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
-log-density + gradient,JAX,approx,1312.456599000143,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,numba,exact,204.21791400076472,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,JAX,exact,6074.920340000062,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,numba,exact,668.8793539997278,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,JAX,exact,6681.119593334491,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,numba,fast,88.39224050007033,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,JAX,fast,184.2941195000094,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,numba,fast,530.1903959989431,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,JAX,fast,855.3095030001714,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,numba,approx,142.46188400011306,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+E1 only,JAX,approx,260.0581949991465,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,numba,approx,1052.5805489996856,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1
+log-density + gradient,JAX,approx,1373.2626780001738,2101,lopex_01,pytensor 3.3.4; jax 0.12.0.1

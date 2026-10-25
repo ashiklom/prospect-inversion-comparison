@@ -1,0 +1,36 @@
+{
+  "backend": "pymc-nutpie",
+  "sampler": "nutpie",
+  "sample_id": "lopex_42",
+  "errmodel": "iid",
+  "e1": "approx",
+  "version": "prospectd",
+  "n_wavelengths": 2101,
+  "constituents": [
+    "Cab",
+    "Car",
+    "Canth",
+    "Cbrown",
+    "Cw",
+    "Cm"
+  ],
+  "settings": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "target_accept": 0.9
+  },
+  "time_setup_s": 15.119629816999804,
+  "time_sampling_s": 138.2653176620006,
+  "n_grad_evals": 125375,
+  "divergences": 0,
+  "max_treedepth_hits": 0,
+  "time_per_grad_us": 1102.8140989990077,
+  "timestamp": "2026-10-25T06:18:23+0000",
+  "platform": "Python 3.13.17",
+  "software": {
+    "nutpie": "0.16.11",
+    "pymc": "6.3.2",
+    "pytensor": "3.3.4"
+  }
+}

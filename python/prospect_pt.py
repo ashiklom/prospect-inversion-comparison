@@ -74,7 +74,7 @@ def _register_numba():
 
     @register_funcify_default_op_cache_key(E1)
     def _numba_funcify_E1(op, node=None, **kwargs):
-        @numba.njit
+        @numba.njit(error_model="numpy")
         def e1_numba(x):
             out = np.empty_like(x)
             xf = x.ravel()
@@ -83,13 +83,18 @@ def _register_numba():
                 of[i] = _exp1_c(xf[i])
             return out
 
-        return e1_numba
+        # The integer salts PyTensor's on-disk numba cache key; bump it whenever
+        # the kernel changes (the default key ignores the kernel's code).
+        return e1_numba, 2
 
     lo, hi = E1_FAST_LO, E1_FAST_HI
 
     @register_funcify_default_op_cache_key(E1Fast)
     def _numba_funcify_E1Fast(op, node=None, **kwargs):
-        @numba.njit(fastmath=True)
+        # error_model="numpy": x = 0 or inf gives inf/nan (-> rejected NUTS
+        # proposal) instead of raising ZeroDivisionError; no fastmath, since
+        # it would let LLVM assume inputs are finite.
+        @numba.njit(error_model="numpy")
         def e1_fast_numba(x):
             out = np.empty_like(x)
             xf = x.ravel()
@@ -110,7 +115,7 @@ def _register_numba():
                     of[i] = np.exp(-xi) * y / xi
             return out
 
-        return e1_fast_numba
+        return e1_fast_numba, 2
 
 
 def _register_jax():

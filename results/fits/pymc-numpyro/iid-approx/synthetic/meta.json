@@ -1,0 +1,37 @@
+{
+  "backend": "pymc-numpyro",
+  "sampler": "numpyro",
+  "sample_id": "synthetic",
+  "errmodel": "iid",
+  "e1": "approx",
+  "version": "prospectd",
+  "n_wavelengths": 2101,
+  "constituents": [
+    "Cab",
+    "Car",
+    "Canth",
+    "Cbrown",
+    "Cw",
+    "Cm"
+  ],
+  "settings": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "target_accept": 0.9
+  },
+  "time_setup_s": 5.037046454000119,
+  "time_sampling_s": 135.00928004199977,
+  "n_grad_evals": 209466,
+  "divergences": 0,
+  "max_treedepth_hits": null,
+  "time_per_grad_us": 644.5403074580113,
+  "timestamp": "2026-10-25T05:59:07+0000",
+  "platform": "Python 3.13.17",
+  "software": {
+    "numpyro": "0.22.0",
+    "jax": "0.12.0.1",
+    "pymc": "6.3.2",
+    "pytensor": "3.3.4"
+  }
+}
