@@ -1,5 +1,6 @@
 {
-  "backend": "pymc",
+  "backend": "pymc-numpyro",
+  "sampler": "numpyro",
   "sample_id": "an03r0185",
   "errmodel": "iid",
   "e1": "exact",
@@ -19,15 +20,18 @@
     "draws": 1000,
     "target_accept": 0.9
   },
-  "time_setup_s": 5.351487901601104,
-  "time_sampling_s": 119.11129474639893,
-  "divergences": 1,
-  "max_treedepth_hits": 0,
-  "timestamp": "2026-10-24T23:48:58+0000",
+  "time_setup_s": 5.18209849699997,
+  "time_sampling_s": 144.74055813500013,
+  "n_grad_evals": 163029,
+  "divergences": 3,
+  "max_treedepth_hits": null,
+  "time_per_grad_us": 887.8209283931088,
+  "timestamp": "2026-10-25T04:35:03+0000",
   "platform": "Python 3.13.17",
   "software": {
+    "numpyro": "0.22.0",
+    "jax": "0.12.0.1",
     "pymc": "6.3.2",
-    "pytensor": "3.3.4",
-    "pytensor_linker": "auto"
+    "pytensor": "3.3.4"
   }
 }
