@@ -1,0 +1,26 @@
+{
+  "backend": "stan",
+  "sample_id": "an03r0161",
+  "errmodel": "iid",
+  "e1": "approx",
+  "version": "prospectd",
+  "n_wavelengths": 2051,
+  "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"],
+  "settings": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "adapt_delta": 0.9
+  },
+  "time_setup_s": 0.048,
+  "time_sampling_s": 503.177,
+  "timestamp": "2026-10-25T01:03:15+0000",
+  "platform": "R version 4.5.3 (2026-03-11)",
+  "divergences": 0,
+  "max_treedepth_hits": 0,
+  "time_per_chain_s": [114.381, 114.041, 144.582, 129.396],
+  "software": {
+    "cmdstan": "2.40.0",
+    "cmdstanr": "0.9.0"
+  }
+}

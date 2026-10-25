@@ -1,0 +1,24 @@
+{
+  "backend": "nimble",
+  "sample_id": "an03r0271",
+  "errmodel": "iid",
+  "e1": "exact",
+  "version": "prospectd",
+  "n_wavelengths": 2051,
+  "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"],
+  "settings": {
+    "chains": 4,
+    "warmup": 5000,
+    "draws": 5000,
+    "thin": 5,
+    "sampler": "AF_slice"
+  },
+  "time_setup_s": 46.867,
+  "time_sampling_s": 542.654,
+  "timestamp": "2026-10-25T00:37:25+0000",
+  "platform": "R version 4.5.3 (2026-03-11)",
+  "divergences": null,
+  "software": {
+    "nimble": "1.4.3"
+  }
+}

@@ -95,6 +95,8 @@ def main():
             "e1": meta.get("e1"), "n_chains": n_chains, "n_draws": len(d),
             "time_setup_s": meta.get("time_setup_s"), "time_sampling_s": t_samp,
             "divergences": meta.get("divergences"),
+            "mean_leapfrog": meta.get("mean_leapfrog"),
+            "median_stepsize": meta.get("median_stepsize"),
             "max_rhat": max(rhats[p] for p in params),
             "min_ess_bulk": min(ess_b[p] for p in params),
             "min_ess_tail": min(ess_t[p] for p in params),

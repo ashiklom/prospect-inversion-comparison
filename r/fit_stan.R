@@ -53,9 +53,12 @@ for (v in setdiff(names(dr), c("N", sprintf("C[%d]", seq_len(nc)), ".chain", ".i
 }
 
 diag <- fit$diagnostic_summary(quiet = TRUE)
+sd_ <- posterior::as_draws_df(fit$sampler_diagnostics())
 meta <- base_meta("stan", args, inp, cfg, t_compile, t_sampling, list(
   divergences = sum(diag$num_divergent),
   max_treedepth_hits = sum(diag$num_max_treedepth),
+  mean_leapfrog = mean(sd_$n_leapfrog__),
+  median_stepsize = median(sd_$stepsize__),
   time_per_chain_s = fit$time()$chains$total,
   software = list(cmdstan = cmdstan_version(), cmdstanr = as.character(packageVersion("cmdstanr")))
 ))

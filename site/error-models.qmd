@@ -217,13 +217,19 @@ t_iid = F[(F.backend == "stan") & (F.errmodel == "iid")]["time_sampling_s"].medi
   $\phi \approx$ `{python} f"{phi_med:.3f}"`), which confirms that the residual
   is a smooth process. In effect, the AR(1) model judges the spectrum to carry
   far less independent information than the iid model assumes.
+* For most leaves $\phi$ is pushed against its upper bound of 1. There the
+  stationary AR(1) is degenerating towards a random walk: the residual is
+  *smoother* than any stationary AR(1) process can represent. That is direct
+  evidence for the smoother Matérn / state-space or GP discrepancy models
+  (B′, D). It also makes sampling harder: NUTS needs step sizes of about 0.02
+  and trees of depth 7–8 near the boundary.
 * Trait intervals widen a lot, and coverage of the measured traits improves
   accordingly. The posterior medians move too, because the AR(1) likelihood
   weights smooth, broad features over individual bands.
 * Each log-density evaluation costs about the same as iid (the extra work is
   $O(n)$ arithmetic), but the posterior geometry is harder: median Stan
   sampling time is `{python} f"{t_har:.0f}"` s vs. `{python} f"{t_iid:.0f}"` s
-  for iid, mostly from deeper NUTS trees.
+  for iid, mostly from the deeper NUTS trees near $\phi \to 1$.
 * What AR(1) does **not** fix: the discrepancy has structure that is shared
   across leaves (the blue mean residual above), which a stationary zero-mean
   process cannot represent. That is the motivation for models D and E above.

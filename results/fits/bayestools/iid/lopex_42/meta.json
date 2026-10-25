@@ -1,0 +1,25 @@
+{
+  "backend": "bayestools",
+  "sample_id": "lopex_42",
+  "errmodel": "iid",
+  "e1": "exact",
+  "version": "prospectd",
+  "n_wavelengths": 2101,
+  "constituents": ["Cab", "Car", "Canth", "Cbrown", "Cw", "Cm"],
+  "settings": {
+    "chains": 4,
+    "iterations": 60000,
+    "burnin": 30000,
+    "thin": 15,
+    "sampler": "DEzs"
+  },
+  "time_setup_s": 0,
+  "time_sampling_s": 209.395,
+  "timestamp": "2026-10-25T00:57:03+0000",
+  "platform": "R version 4.5.3 (2026-03-11)",
+  "divergences": null,
+  "n_internal_chains": 12,
+  "software": {
+    "BayesianTools": "0.1.9"
+  }
+}

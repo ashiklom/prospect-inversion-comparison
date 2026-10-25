@@ -75,6 +75,25 @@ show(fig)
   Turing's figure is Julia JIT compilation. PyMC compiles the PyTensor graph
   with numba. BayesianTools has none.
 
+```{python}
+#| label: tbl-geometry
+#| tbl-cap: "Per-spectrum sampling time by backend (s, iid model), with Stan's mean leapfrog steps per draw and adapted step size as a measure of posterior difficulty."
+tt = fi.pivot(index="sample_id", columns="backend", values="time_sampling_s").reindex(columns=present)
+tt.columns = [LABEL[c] for c in tt.columns]
+st = fi[fi.backend == "stan"].set_index("sample_id")
+if "mean_leapfrog" in st:
+    tt["Stan leapfrog / draw"] = st["mean_leapfrog"]
+    tt["Stan step size"] = st["median_stepsize"]
+tt = tt.reindex([s for s in sample_order() if s in tt.index]).reset_index().rename(columns={"sample_id": "Sample"})
+show_table(fmt_table(tt, 3))
+```
+
+The thickest, wettest leaves (`lopex_24`, Iris, highest EWT; `an03r0271`,
+Osmanthus, highest LMA) are the slowest in every gradient-based backend. They
+need smaller steps and longer trajectories, because N, Cw and Cm are more
+strongly correlated in their posteriors. The gradient-free samplers, whose cost
+per iteration is fixed, are much less sensitive to this.
+
 ## Do the backends agree?
 
 ```{python}
