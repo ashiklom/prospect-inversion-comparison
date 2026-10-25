@@ -154,6 +154,10 @@ window.Quarto = {
 <span class="menu-text">Backends</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="./samplers.html"> 
+<span class="menu-text">Faster PyMC</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="./error-models.html"> 
 <span class="menu-text">Error models</span></a>
   </li>  
@@ -213,7 +217,7 @@ window.Quarto = {
 </header>
 
 
-<div id="4b8e17b6" class="cell" data-execution_count="1">
+<div id="06ebfd25" class="cell" data-execution_count="1">
 <div class="cell-output cell-output-display">
 <script type="module">
     const { set_or_remove_dark_class } = await window._itables_2_9_1;
@@ -333,10 +337,10 @@ k(\lambda) = \frac{1}{N}\sum_j C_j\, K_j(\lambda),
 <li><strong>exact</strong> (default): a library implementation, with the analytic derivative <span class="math inline">\(\frac{d}{dx}E_1(x) = -e^{-x}/x\)</span> supplied explicitly wherever gradients are needed. The special function itself is therefore never differentiated.</li>
 <li><strong>approx</strong>: the Swamee &amp; Ohija (2003) closed form <span class="math inline">\(E_1(x) \approx \left(A^{-7.7} + B\right)^{-0.13}\)</span>, with <span class="math inline">\(A=\ln\!\big((0.56146/x+0.65)(1+x)\big)\)</span> and <span class="math inline">\(B=x^4 e^{7.7x}(2+x)^{3.7}\)</span>. It is cheap and differentiable in any DSL. See <a href="./verification.html">Forward model</a> for its error.</li>
 </ul>
-<div id="faba18bb" class="cell" data-execution_count="2">
+<div id="b51539a2" class="cell" data-execution_count="2">
 <div class="cell-output cell-output-display">
 <!--| quarto-html-table-processing: none -->
-<table id="itables_919a2df9_4045_46a7_a390_1d9a0fece1b6" hidden="hidden">
+<table id="itables_911bd539_4b38_41ff_9d36_58fe195714e1" hidden="hidden">
   <tbody>
     <tr>
       <td style="vertical-align:middle; text-align:left"><a href="https://itables.org/"><svg class="main-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="64" viewbox="0 0 500 400" style="font-family: 'Droid Sans', sans-serif;">
@@ -402,7 +406,7 @@ k(\lambda) = \frac{1}{N}\sum_j C_j\, K_j(\lambda),
     </tr>
   </tbody>
 </table>
-<div id="itables_919a2df9_4045_46a7_a390_1d9a0fece1b6_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
+<div id="itables_911bd539_4b38_41ff_9d36_58fe195714e1_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
       <th style="border:1px solid #ddd;padding:8px"><sup><noscript><span title="JavaScript not allowed. Please trust this notebook to get interactive tables.">🔒</span></noscript><a href="https://itables.org/fallbacks/static_preview.html" title="ITables v2.9.1 static preview">ⓘ</a></sup>Backend</th>
       <th style="border:1px solid #ddd;padding:8px">PROSPECT implementation</th>
       <th style="border:1px solid #ddd;padding:8px">Exact E₁</th>
@@ -415,13 +419,13 @@ k(\lambda) = \frac{1}{N}\sum_j C_j\, K_j(\lambda),
 <tr><td style="border:1px solid #ddd;padding:8px">Turing.jl</td><td style="border:1px solid #ddd;padding:8px">julia/src/ProspectModels.jl</td><td style="border:1px solid #ddd;padding:8px">SpecialFunctions.expint</td><td style="border:1px solid #ddd;padding:8px">DiffRules rule −e⁻ˣ/x (ForwardDiff)</td><td style="border:1px solid #ddd;padding:8px">NUTS (AdvancedHMC)</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">NIMBLE</td><td style="border:1px solid #ddd;padding:8px">r/prospect_nimble.R</td><td style="border:1px solid #ddd;padding:8px">GSL gsl_sf_expint_E1 via nimbleExternalCall (static link)</td><td style="border:1px solid #ddd;padding:8px">not needed (gradient-free sampler)</td><td style="border:1px solid #ddd;padding:8px">Automated-factor slice (AF_slice)</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">BayesianTools</td><td style="border:1px solid #ddd;padding:8px">r/prospect.R</td><td style="border:1px solid #ddd;padding:8px">expint::expint_E1 (GSL port)</td><td style="border:1px solid #ddd;padding:8px">not needed (gradient-free sampler)</td><td style="border:1px solid #ddd;padding:8px">DREAM-family DEzs</td></tr>
-</tbody></table></div><script>document.getElementById("itables_919a2df9_4045_46a7_a390_1d9a0fece1b6")?.removeAttribute("hidden");document.getElementById("itables_919a2df9_4045_46a7_a390_1d9a0fece1b6_fallback")?.setAttribute("hidden", "hidden");</script>
+</tbody></table></div><script>document.getElementById("itables_911bd539_4b38_41ff_9d36_58fe195714e1")?.removeAttribute("hidden");document.getElementById("itables_911bd539_4b38_41ff_9d36_58fe195714e1_fallback")?.setAttribute("hidden", "hidden");</script>
 <script type="module">
     (async () => {
         async function init() {
             const { ITable, jQuery: $ } = await window._itables_2_9_1;
 
-            document.querySelectorAll("#itables_919a2df9_4045_46a7_a390_1d9a0fece1b6:not(.dataTable)").forEach(table => {
+            document.querySelectorAll("#itables_911bd539_4b38_41ff_9d36_58fe195714e1:not(.dataTable)").forEach(table => {
                 if (!(table instanceof HTMLTableElement))
                     return;
 
@@ -464,10 +468,10 @@ C_j &amp;\sim \text{LogNormal}(\mu_j, s_j) \\
 R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ \sigma\big)\quad\text{iid over } i
 \end{aligned}
 \]</span></p>
-<div id="c709c187" class="cell" data-execution_count="3">
+<div id="94d631aa" class="cell" data-execution_count="3">
 <div class="cell-output cell-output-display">
 <!--| quarto-html-table-processing: none -->
-<table id="itables_5a947a83_7a01_4d83_a4c7_fe76f4968d1a" hidden="hidden">
+<table id="itables_acba7696_dd47_45d7_b6b0_3b33a30e742e" hidden="hidden">
   <tbody>
     <tr>
       <td style="vertical-align:middle; text-align:left"><a href="https://itables.org/"><svg class="main-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="64" viewbox="0 0 500 400" style="font-family: 'Droid Sans', sans-serif;">
@@ -533,7 +537,7 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
     </tr>
   </tbody>
 </table>
-<div id="itables_5a947a83_7a01_4d83_a4c7_fe76f4968d1a_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
+<div id="itables_acba7696_dd47_45d7_b6b0_3b33a30e742e_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
       <th style="border:1px solid #ddd;padding:8px"><sup><noscript><span title="JavaScript not allowed. Please trust this notebook to get interactive tables.">🔒</span></noscript><a href="https://itables.org/fallbacks/static_preview.html" title="ITables v2.9.1 static preview">ⓘ</a></sup>Parameter</th>
       <th style="border:1px solid #ddd;padding:8px">Distribution</th>
       <th style="border:1px solid #ddd;padding:8px">Hyperparameters</th>
@@ -547,13 +551,13 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
 <tr><td style="border:1px solid #ddd;padding:8px">Cw</td><td style="border:1px solid #ddd;padding:8px">LogNormal</td><td style="border:1px solid #ddd;padding:8px">meanlog -4.605 (median 0.01), sdlog 1.0</td><td style="border:1px solid #ddd;padding:8px">0.00193 – 0.0518</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">Cm</td><td style="border:1px solid #ddd;padding:8px">LogNormal</td><td style="border:1px solid #ddd;padding:8px">meanlog -4.710 (median 0.009), sdlog 1.0</td><td style="border:1px solid #ddd;padding:8px">0.00174 – 0.0466</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">σ</td><td style="border:1px solid #ddd;padding:8px">HalfNormal</td><td style="border:1px solid #ddd;padding:8px">scale 0.05</td><td style="border:1px solid #ddd;padding:8px">0 – 0.0823</td></tr>
-</tbody></table></div><script>document.getElementById("itables_5a947a83_7a01_4d83_a4c7_fe76f4968d1a")?.removeAttribute("hidden");document.getElementById("itables_5a947a83_7a01_4d83_a4c7_fe76f4968d1a_fallback")?.setAttribute("hidden", "hidden");</script>
+</tbody></table></div><script>document.getElementById("itables_acba7696_dd47_45d7_b6b0_3b33a30e742e")?.removeAttribute("hidden");document.getElementById("itables_acba7696_dd47_45d7_b6b0_3b33a30e742e_fallback")?.setAttribute("hidden", "hidden");</script>
 <script type="module">
     (async () => {
         async function init() {
             const { ITable, jQuery: $ } = await window._itables_2_9_1;
 
-            document.querySelectorAll("#itables_5a947a83_7a01_4d83_a4c7_fe76f4968d1a:not(.dataTable)").forEach(table => {
+            document.querySelectorAll("#itables_acba7696_dd47_45d7_b6b0_3b33a30e742e:not(.dataTable)").forEach(table => {
                 if (!(table instanceof HTMLTableElement))
                     return;
 
@@ -588,10 +592,10 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
 <section id="sampling" class="level2">
 <h2 class="anchored" data-anchor-id="sampling">Sampling</h2>
 <p>To keep timings comparable, <strong>chains run sequentially on one core</strong> in every backend. Different spectra run in parallel (<code>make -j4</code>).</p>
-<div id="70ca0d12" class="cell" data-execution_count="4">
+<div id="d7b41305" class="cell" data-execution_count="4">
 <div class="cell-output cell-output-display">
 <!--| quarto-html-table-processing: none -->
-<table id="itables_d77aca4c_69ce_4e6a_98c1_c3437f848d9b" hidden="hidden">
+<table id="itables_2f2db040_8e86_4051_8706_b8c0022c7d6e" hidden="hidden">
   <tbody>
     <tr>
       <td style="vertical-align:middle; text-align:left"><a href="https://itables.org/"><svg class="main-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="64" viewbox="0 0 500 400" style="font-family: 'Droid Sans', sans-serif;">
@@ -657,7 +661,7 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
     </tr>
   </tbody>
 </table>
-<div id="itables_d77aca4c_69ce_4e6a_98c1_c3437f848d9b_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
+<div id="itables_2f2db040_8e86_4051_8706_b8c0022c7d6e_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
       <th style="border:1px solid #ddd;padding:8px"><sup><noscript><span title="JavaScript not allowed. Please trust this notebook to get interactive tables.">🔒</span></noscript><a href="https://itables.org/fallbacks/static_preview.html" title="ITables v2.9.1 static preview">ⓘ</a></sup>Backend</th>
       <th style="border:1px solid #ddd;padding:8px">Settings</th>
     </tr></thead><tbody>
@@ -666,13 +670,13 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
 <tr><td style="border:1px solid #ddd;padding:8px">Turing.jl</td><td style="border:1px solid #ddd;padding:8px">4 chains × (1000 warmup + 1000 draws), target accept 0.9</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">NIMBLE</td><td style="border:1px solid #ddd;padding:8px">4 chains × (5000 burn-in + 5000 iterations), thin 5, AF_slice on all parameters jointly</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">BayesianTools</td><td style="border:1px solid #ddd;padding:8px">4 DEzs runs × 3 internal chains; 60000 iterations per run (first 30000 discarded), thin 15. Each internal chain is reported as a chain.</td></tr>
-</tbody></table></div><script>document.getElementById("itables_d77aca4c_69ce_4e6a_98c1_c3437f848d9b")?.removeAttribute("hidden");document.getElementById("itables_d77aca4c_69ce_4e6a_98c1_c3437f848d9b_fallback")?.setAttribute("hidden", "hidden");</script>
+</tbody></table></div><script>document.getElementById("itables_2f2db040_8e86_4051_8706_b8c0022c7d6e")?.removeAttribute("hidden");document.getElementById("itables_2f2db040_8e86_4051_8706_b8c0022c7d6e_fallback")?.setAttribute("hidden", "hidden");</script>
 <script type="module">
     (async () => {
         async function init() {
             const { ITable, jQuery: $ } = await window._itables_2_9_1;
 
-            document.querySelectorAll("#itables_d77aca4c_69ce_4e6a_98c1_c3437f848d9b:not(.dataTable)").forEach(table => {
+            document.querySelectorAll("#itables_2f2db040_8e86_4051_8706_b8c0022c7d6e:not(.dataTable)").forEach(table => {
                 if (!(table instanceof HTMLTableElement))
                     return;
 
@@ -706,10 +710,10 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
 </section>
 <section id="software-versions" class="level2">
 <h2 class="anchored" data-anchor-id="software-versions">Software versions</h2>
-<div id="32e1b96b" class="cell" data-execution_count="5">
+<div id="8c872ea2" class="cell" data-execution_count="5">
 <div class="cell-output cell-output-display">
 <!--| quarto-html-table-processing: none -->
-<table id="itables_9c2ade95_0707_4b06_a67a_0c2e84f767a3" hidden="hidden">
+<table id="itables_8eadc9c0_171b_421d_9fd8_a909f85c21e7" hidden="hidden">
   <tbody>
     <tr>
       <td style="vertical-align:middle; text-align:left"><a href="https://itables.org/"><svg class="main-svg" xmlns="http://www.w3.org/2000/svg" xlink="http://www.w3.org/1999/xlink" width="64" viewbox="0 0 500 400" style="font-family: 'Droid Sans', sans-serif;">
@@ -775,28 +779,28 @@ R^{obs}(\lambda_i) &amp;\sim \mathcal N\!\big(R^{PROSPECT}(\lambda_i;\, N, C),\ 
     </tr>
   </tbody>
 </table>
-<div id="itables_9c2ade95_0707_4b06_a67a_0c2e84f767a3_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
+<div id="itables_8eadc9c0_171b_421d_9fd8_a909f85c21e7_fallback"><table style="border-collapse:collapse"><thead>    <tr style="text-align: right;">
       <th style="border:1px solid #ddd;padding:8px"><sup><noscript><span title="JavaScript not allowed. Please trust this notebook to get interactive tables.">🔒</span></noscript><a href="https://itables.org/fallbacks/static_preview.html" title="ITables v2.9.1 static preview">ⓘ</a></sup>Backend</th>
       <th style="border:1px solid #ddd;padding:8px">Versions</th>
     </tr></thead><tbody>
 <tr><td style="border:1px solid #ddd;padding:8px">Stan</td><td style="border:1px solid #ddd;padding:8px">cmdstan 2.40.0; cmdstanr 0.9.0 — R version 4.5.3 (2026-03-11)</td></tr>
-<tr><td style="border:1px solid #ddd;padding:8px">PyMC</td><td style="border:1px solid #ddd;padding:8px">pymc 6.3.2; pytensor 3.3.4; pytensor_linker auto — Python 3.13.17</td></tr>
+<tr><td style="border:1px solid #ddd;padding:8px">PyMC</td><td style="border:1px solid #ddd;padding:8px">pymc 6.3.2; pytensor 3.3.4 — Python 3.13.17</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">Turing.jl</td><td style="border:1px solid #ddd;padding:8px">Turing 0.49.0; ad_backend ForwardDiff — Julia 1.13.2</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">NIMBLE</td><td style="border:1px solid #ddd;padding:8px">nimble 1.4.3 — R version 4.5.3 (2026-03-11)</td></tr>
 <tr><td style="border:1px solid #ddd;padding:8px">BayesianTools</td><td style="border:1px solid #ddd;padding:8px">BayesianTools 0.1.9 — R version 4.5.3 (2026-03-11)</td></tr>
-</tbody></table></div><script>document.getElementById("itables_9c2ade95_0707_4b06_a67a_0c2e84f767a3")?.removeAttribute("hidden");document.getElementById("itables_9c2ade95_0707_4b06_a67a_0c2e84f767a3_fallback")?.setAttribute("hidden", "hidden");</script>
+</tbody></table></div><script>document.getElementById("itables_8eadc9c0_171b_421d_9fd8_a909f85c21e7")?.removeAttribute("hidden");document.getElementById("itables_8eadc9c0_171b_421d_9fd8_a909f85c21e7_fallback")?.setAttribute("hidden", "hidden");</script>
 <script type="module">
     (async () => {
         async function init() {
             const { ITable, jQuery: $ } = await window._itables_2_9_1;
 
-            document.querySelectorAll("#itables_9c2ade95_0707_4b06_a67a_0c2e84f767a3:not(.dataTable)").forEach(table => {
+            document.querySelectorAll("#itables_8eadc9c0_171b_421d_9fd8_a909f85c21e7:not(.dataTable)").forEach(table => {
                 if (!(table instanceof HTMLTableElement))
                     return;
 
                 let dt_args = {
           "classes": ["display", "compact"],
-          "data_json": "[[\"Stan\", \"cmdstan 2.40.0; cmdstanr 0.9.0 \\u2014 R version 4.5.3 (2026-03-11)\"], [\"PyMC\", \"pymc 6.3.2; pytensor 3.3.4; pytensor_linker auto \\u2014 Python 3.13.17\"], [\"Turing.jl\", \"Turing 0.49.0; ad_backend ForwardDiff \\u2014 Julia 1.13.2\"], [\"NIMBLE\", \"nimble 1.4.3 \\u2014 R version 4.5.3 (2026-03-11)\"], [\"BayesianTools\", \"BayesianTools 0.1.9 \\u2014 R version 4.5.3 (2026-03-11)\"]]",
+          "data_json": "[[\"Stan\", \"cmdstan 2.40.0; cmdstanr 0.9.0 \\u2014 R version 4.5.3 (2026-03-11)\"], [\"PyMC\", \"pymc 6.3.2; pytensor 3.3.4 \\u2014 Python 3.13.17\"], [\"Turing.jl\", \"Turing 0.49.0; ad_backend ForwardDiff \\u2014 Julia 1.13.2\"], [\"NIMBLE\", \"nimble 1.4.3 \\u2014 R version 4.5.3 (2026-03-11)\"], [\"BayesianTools\", \"BayesianTools 0.1.9 \\u2014 R version 4.5.3 (2026-03-11)\"]]",
           "layout": {"bottomEnd": null, "bottomStart": null, "topEnd": null, "topStart": null},
           "order": [],
           "paging": false,

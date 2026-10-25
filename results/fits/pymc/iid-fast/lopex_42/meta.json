@@ -1,0 +1,35 @@
+{
+  "backend": "pymc",
+  "sampler": "pymc",
+  "sample_id": "lopex_42",
+  "errmodel": "iid",
+  "e1": "fast",
+  "version": "prospectd",
+  "n_wavelengths": 2101,
+  "constituents": [
+    "Cab",
+    "Car",
+    "Canth",
+    "Cbrown",
+    "Cw",
+    "Cm"
+  ],
+  "settings": {
+    "chains": 4,
+    "warmup": 1000,
+    "draws": 1000,
+    "target_accept": 0.9
+  },
+  "time_setup_s": 6.103130322113429,
+  "time_sampling_s": 147.61651873588562,
+  "n_grad_evals": 223026,
+  "divergences": 0,
+  "max_treedepth_hits": 0,
+  "time_per_grad_us": 661.8803132185737,
+  "timestamp": "2026-10-25T06:50:40+0000",
+  "platform": "Python 3.13.17",
+  "software": {
+    "pymc": "6.3.2",
+    "pytensor": "3.3.4"
+  }
+}

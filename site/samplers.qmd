@@ -100,7 +100,8 @@ fig = go.Figure(go.Heatmap(z=M.values, x=M.columns, y=M.index, colorscale=[[0, "
                            text=[[f"{v:.1f}" for v in row] for row in M.values], texttemplate="%{text}",
                            textfont=dict(size=16), colorbar=dict(title="ESS/s"), xgap=2, ygap=2,
                            hovertemplate="%{y} · %{x}: %{z:.1f} ESS/s<extra></extra>"))
-fig.update_layout(height=320, yaxis=dict(autorange="reversed"), xaxis_title="E₁", yaxis_title="sampler")
+fig.update_layout(height=320, yaxis=dict(autorange="reversed"), xaxis_title="E₁", yaxis_title="sampler",
+                  margin=dict(l=110))
 show(fig)
 ```
 
@@ -151,6 +152,7 @@ best_lab = f"{M.index[best_s]} + {M.columns[best_e]} E₁"
 nut_fast = M.loc["nutpie", "fast"]
 gpi = V.groupby("sampler")["grads_per_iter"].median()
 upg = V.groupby(["sampler", "E1"])["time_per_grad_us"].median()
+essm = V.groupby("sampler")["min_ess_bulk"].median()
 ```
 
 **What matters most.**
@@ -164,9 +166,18 @@ upg = V.groupby(["sampler", "E1"])["time_per_grad_us"].median()
   NUTS in Python. Their trajectory lengths also differ, at a median
   `{python} f"{gpi['nutpie']:.1f}"` vs. `{python} f"{gpi['pm.sample']:.1f}"`
   gradients per iteration.
-* **NumPyro on CPU** compiles the whole sampler with XLA, but its per-gradient
-  cost depends entirely on how fast the JAX log-density is. With JAX's own
-  `exp1` it is the slowest option by far. With the fast E₁ it is competitive.
+* **nutpie trades independence for speed.** Its trajectories are shorter,
+  so each draw is cheaper but less independent: median worst-parameter ESS is
+  `{python} f"{essm['nutpie']:.0f}"` vs. `{python} f"{essm['pm.sample']:.0f}"`
+  for `pm.sample` from the same 4000 draws. On the two thick leaves
+  (`lopex_24`, `an03r0271`) this leaves R̂ at 1.01–1.02, so use longer
+  chains there.
+* **NumPyro on CPU** compiles the whole sampler with XLA. With the fast E₁ it
+  has the lowest cost per gradient of all
+  (`{python} f"{upg['NumPyro','fast']:.0f}"` µs), even lower than the Numba
+  microbenchmark, because no Python sits between NUTS steps. With JAX's own
+  `exp1` it is the slowest option by far
+  (`{python} f"{upg['NumPyro','exact']:,.0f}"` µs per gradient).
 * **E₁ choice.** The fast E₁ helps every sampler and costs no accuracy.
   Swamee–Ohija is never the fastest choice.
 
@@ -187,11 +198,20 @@ for b_, slab in SAMPLERS:
         k = z.abs().idxmax()
         rows.append({"Sampler": slab, "E₁": elab, "max |z|": z.abs().max(), "where": f"{k[0]} · {k[1]}",
                      "median |z|": z.abs().median(), "max R̂": d["rhat"].max()})
-show_table(fmt_table(pd.DataFrame(rows), 3))
+AG = pd.DataFrame(rows)
+show_table(fmt_table(AG, 3))
+z_ex = AG[AG["E₁"] != "Swamee–Ohija"]["max |z|"].max()
+z_so = AG[AG["E₁"] == "Swamee–Ohija"]["max |z|"].max()
 ```
 
-All combinations target the same posterior. Differences from Stan are at the
-Monte Carlo error level, except where the table shows otherwise.
+With the exact or fast $E_1$, every sampler matches Stan to within
+`{python} f"{z_ex:.2f}"` posterior SDs: Monte Carlo error. With Swamee–Ohija
+the largest shift is `{python} f"{z_so:.2f}"` SDs, mostly in σ. That is not
+sampling error: the approximation changes the model slightly, by the same
+amount for every sampler and in Stan
+([Backends](backends.qmd#exact-vs.-approximate-e_1-in-practice)). Under the
+over-confident iid likelihood, even a 10⁻⁴ change in R is a noticeable fraction
+of a posterior SD. The fast $E_1$ shows no such shift.
 
 ::: {.callout-note collapse="true"}
 ## A pitfall found along the way: `get_jaxified_logp(negative_logp=False)`
@@ -258,8 +278,8 @@ the five reference backends.
 
 **Recommendation.**
 
-* **Single-leaf fits:** stay on the CPU with nutpie and the fast E₁, and
-  consider fitting at a coarser wavelength step. Cost scales directly with
+* **Single-leaf fits:** stay on the CPU with the fast E₁ and nutpie or
+  NumPyro, and consider fitting at a coarser wavelength step. Cost scales directly with
   the number of bands, and the residuals are correlated over tens of nm.
 * **Library-scale or hierarchical models:** move to JAX on a GPU, with the
   fast E₁.
