@@ -21,12 +21,14 @@ SUMMARY = ROOT / "results" / "summary"
 # palette, adjacent order; markers are the secondary encoding for scatters).
 BACKENDS = ["stan", "pymc", "turing", "nimble", "bayestools"]
 LABEL = {"stan": "Stan", "pymc": "PyMC", "turing": "Turing.jl", "nimble": "NIMBLE",
-         "bayestools": "BayesianTools"}
+         "bayestools": "BayesianTools", "pymc-nutpie": "PyMC + nutpie",
+         "pymc-numpyro": "PyMC + NumPyro"}
 COLOR = {"stan": "#2a78d6", "pymc": "#eb6834", "turing": "#1baf7a", "nimble": "#eda100",
          "bayestools": "#e87ba4"}
 SYMBOL = {"stan": "circle", "pymc": "square", "turing": "diamond", "nimble": "triangle-up",
           "bayestools": "x"}
 ERRMODEL_LABEL = {"iid": "iid normal", "iid-approx": "iid normal, approx. E1",
+                  "iid-fast": "iid normal, fast E1",
                   "hetero_ar1": "heteroskedastic + AR(1)"}
 INK, INK2, MUTED = "#0b0b0b", "#52514e", "#898781"
 GRID, AXIS, SURFACE = "#e1e0d9", "#c3c2b7", "#fcfcfb"
@@ -70,8 +72,13 @@ except Exception:
     pass
 
 
-def read(name: str) -> pd.DataFrame:
-    return pd.read_csv(SUMMARY / name)
+def read(name: str, main: bool = True) -> pd.DataFrame:
+    """Load a summary table. By default keep only the five main backends (the
+    PyMC sampler/E1 variants are analysed on samplers.qmd)."""
+    df = pd.read_csv(SUMMARY / name)
+    if main and "backend" in df.columns:
+        df = df[df["backend"].isin(BACKENDS)]
+    return df
 
 
 def config(name: str):

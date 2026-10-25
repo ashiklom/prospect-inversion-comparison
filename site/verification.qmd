@@ -28,7 +28,8 @@ t = (impl.groupby(["implementation", "e1"])
          .agg(max_dR=("max_abs_dR", "max"), max_dT=("max_abs_dT", "max"),
               tolerance=("tolerance", "first"), all_pass=("pass", "all"))
          .reset_index())
-names = {"r": "base R (BayesianTools)", "nimble": "NIMBLE", "stan": "Stan", "pytensor": "PyTensor (PyMC)",
+names = {"r": "base R (BayesianTools)", "nimble": "NIMBLE", "stan": "Stan",
+         "pytensor": "PyTensor → Numba (PyMC, nutpie)", "pytensor-jax": "PyTensor → JAX (NumPyro)",
          "julia": "Julia (Turing)", "prosail": "prosail (independent)"}
 t["implementation"] = t["implementation"].map(names)
 t["status"] = np.where(t["all_pass"], "✓ pass", "✗ FAIL")
@@ -38,7 +39,9 @@ show_table(fmt_table(t.drop(columns="all_pass").rename(columns={
 ```
 
 All five backend implementations agree with the reference to within a few
-units of machine precision ($\lesssim 10^{-15}$). The reference agrees with
+units of machine precision ($\lesssim 10^{-15}$), in every $E_1$ mode they
+support. PyTensor is checked under both its Numba backend (used by PyMC and
+nutpie) and its JAX backend (used by NumPyro); see [Faster PyMC](samplers.qmd). The reference agrees with
 `prosail` to about $5\times10^{-11}$, which is the precision of `prosail`'s
 stored coefficient tables.
 
@@ -120,9 +123,19 @@ show(fig)
 ```
 
 ```{python}
-apx = fc[fc["e1"] == "approx-exact"][["case", "max_abs_dR", "max_abs_dT"]]
-show_table(fmt_table(apx.rename(columns={"case": "Case", "max_abs_dR": "max |ΔR|", "max_abs_dT": "max |ΔT|"})))
+#| label: tbl-e1modes
+#| tbl-cap: "Maximum change in PROSPECT-D R and T relative to the exact E₁, for the fast E₁ (NAG S13AAF Chebyshev expansions from the original PROSPECT Fortran) and the Swamee–Ohija approximation."
+apx = fc[fc["e1"].isin(["fast-exact", "approx-exact"])][["e1", "case", "max_abs_dR", "max_abs_dT"]].copy()
+apx["e1"] = apx["e1"].map({"fast-exact": "fast (NAG Chebyshev)", "approx-exact": "Swamee–Ohija"})
+show_table(fmt_table(apx.rename(columns={"e1": "E₁", "case": "Case", "max_abs_dR": "max |ΔR|", "max_abs_dT": "max |ΔT|"})))
 ```
+
+A third option, used on [Faster PyMC](samplers.qmd), is the **fast E₁**: the
+NAG S13AAF Chebyshev expansions from the original PROSPECT Fortran. These are
+two fixed-length polynomials (for $x \le 4$ and $x > 4$), with relative error
+≤ 2×10⁻¹² against Cephes. They change R and T by ≤ 6×10⁻¹⁵, so they are
+indistinguishable from the exact $E_1$, and they are 2.5× (Numba) to 35× (JAX)
+cheaper to evaluate.
 
 The approximation shifts R and T by at most a few ×10⁻⁴. That is an order of
 magnitude below the residual SD of a PROSPECT fit to a real leaf (≈ 0.01; see

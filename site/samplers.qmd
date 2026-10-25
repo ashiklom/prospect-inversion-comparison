@@ -1,0 +1,249 @@
+---
+title: "Faster PyMC: samplers × E₁"
+---
+
+```{python}
+import numpy as np, pandas as pd
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from _lib import *
+B = read("bench_logp.csv", main=False)
+F = read("fits.csv", main=False)
+P = read("params.csv", main=False)
+
+SAMPLERS = [("pymc", "pm.sample"), ("pymc-nutpie", "nutpie"), ("pymc-numpyro", "NumPyro")]
+E1S = [("iid", "exact"), ("iid-fast", "fast"), ("iid-approx", "Swamee–Ohija")]
+SCOLOR = {"pymc": COLOR["stan"], "pymc-nutpie": COLOR["pymc"], "pymc-numpyro": COLOR["turing"]}
+ESYM = {"iid": "circle", "iid-fast": "diamond", "iid-approx": "square"}
+V = F[F["backend"].isin([s for s, _ in SAMPLERS]) & F["errmodel"].isin([e for e, _ in E1S])].copy()
+V["sampler"] = V["backend"].map(dict(SAMPLERS))
+V["E1"] = V["errmodel"].map(dict(E1S))
+V["iters"] = V["n_chains"] * 2000  # 1000 warmup + 1000 draws per chain
+V["grads_per_iter"] = V["n_grad_evals"] / V["iters"]
+```
+
+The [backend comparison](backends.qmd) used PyMC's default NUTS sampler. Here
+the **same PyMC model** is run with three different NUTS samplers and three
+$E_1$ implementations, on all 11 spectra (iid error model). Like everything
+else on this site, each fit uses one core with chains run one after another.
+
+| Sampler | Log-density + gradient | Sampler loop |
+|---|---|---|
+| **pm.sample** | PyTensor → Numba (default backend) | PyMC's NUTS, in Python |
+| **nutpie** | the same Numba-compiled function | Rust (`nuts-rs`) |
+| **NumPyro** | PyTensor → JAX, gradient by JAX | the whole NUTS loop compiled by JAX/XLA (CPU) |
+
+| $E_1$ | Implementation | Gradient |
+|---|---|---|
+| **exact** | Cephes `exp1` (SciPy for Numba; `jax.scipy.special.exp1` for JAX) | analytic, $-e^{-x}/x$ |
+| **fast** | NAG S13AAF Chebyshev expansions from the original PROSPECT Fortran: two fixed-length polynomials, relative error ≤ 2×10⁻¹² | analytic, $-e^{-x}/x$ |
+| **Swamee–Ohija** | closed form, relative error ~10⁻³ | automatic differentiation |
+
+The fast $E_1$ changes PROSPECT-D R and T by ≤ 6×10⁻¹⁵ (see
+[Forward model](verification.qmd)), so it is a drop-in replacement for the
+exact one.
+
+## Cost of one log-density + gradient
+
+```{python}
+#| label: fig-bench
+#| fig-cap: "Single-threaded microbenchmarks on lopex_01 (2101 bands): E₁ alone (left) and the full log-density + gradient (right), for PyTensor's Numba backend (used by pm.sample and nutpie) and its JAX backend (used by NumPyro). Log scale; hover for values."
+fig = make_subplots(rows=1, cols=2, subplot_titles=["E₁ only (µs)", "log-density + gradient (µs)"],
+                    horizontal_spacing=0.1)
+for ci, what in enumerate(("E1 only", "log-density + gradient")):
+    for fw, col in (("numba", COLOR["stan"]), ("JAX", COLOR["pymc"])):
+        d = B[(B["what"] == what) & (B["framework"] == fw)].set_index("e1").reindex(["exact", "fast", "approx"])
+        fig.add_trace(go.Bar(x=["exact", "fast", "Swamee–Ohija"], y=d["us"], name=fw, legendgroup=fw,
+                             showlegend=(ci == 0), marker=dict(color=col, line=dict(color=SURFACE, width=2)),
+                             text=[f"{v:,.0f}" for v in d["us"]], textposition="outside",
+                             hovertemplate="%{x}: %{y:,.0f} µs<extra>" + fw + "</extra>"), 1, ci + 1)
+fig.update_yaxes(type="log", title_text="µs (log scale)", row=1, col=1)
+fig.update_yaxes(type="log", row=1, col=2)
+fig.update_layout(barmode="group", height=420, legend=dict(orientation="h", y=1.15, x=0), bargap=0.25)
+show(fig)
+b = B.set_index(["what", "framework", "e1"])["us"]
+```
+
+```{python}
+t = B.pivot_table(index=["what", "e1"], columns="framework", values="us").reset_index()
+show_table(fmt_table(t.rename(columns={"what": "Quantity", "e1": "E₁", "numba": "Numba (µs)", "JAX": "JAX (µs)"}), 3))
+```
+
+* **E₁ is about a quarter of the Numba gradient cost.** The fast E₁ cuts E₁
+  from `{python} f"{b['E1 only','numba','exact']:.0f}"` to
+  `{python} f"{b['E1 only','numba','fast']:.0f}"` µs. The full
+  log-density + gradient drops from
+  `{python} f"{b['log-density + gradient','numba','exact']:.0f}"` to
+  `{python} f"{b['log-density + gradient','numba','fast']:.0f}"` µs.
+* **JAX's built-in `exp1` is very slow on CPU**: `{python} f"{b['E1 only','JAX','exact']:,.0f}"` µs
+  for 2101 values, about `{python} f"{b['E1 only','JAX','exact']/b['E1 only','numba','exact']:.0f}"`×
+  Cephes. It evaluates a fixed number of series and continued-fraction
+  iterations for every element. Swapping in the fast E₁ makes the JAX gradient
+  `{python} f"{b['log-density + gradient','JAX','exact']/b['log-density + gradient','JAX','fast']:.0f}"`× faster.
+* **Swamee–Ohija is the slowest option in both frameworks.** Its value is cheap
+  to compute, but automatic differentiation through its `log`/`pow`/`exp`
+  chain costs more than the exact function with an analytic gradient. Stan
+  showed the same effect ([Backends](backends.qmd)).
+* With the fast E₁, the remaining cost is the rest of PROSPECT (`exp`, `pow`,
+  `sqrt` and about ten divisions per band). Fusing everything into one
+  hand-written Numba loop does **not** help: 2101 bands fit in cache, so the
+  cost is arithmetic, not memory traffic.
+
+## Full fits: sampler × E₁
+
+```{python}
+#| label: fig-matrix
+#| fig-cap: "Median (over the 11 spectra) worst-parameter bulk ESS per second of sampling, for every sampler × E₁ combination. Darker = faster."
+M = V.groupby(["sampler", "E1"])["min_ess_bulk_per_s"].median().unstack()
+M = M.reindex(index=[s for _, s in SAMPLERS], columns=[e for _, e in E1S])
+fig = go.Figure(go.Heatmap(z=M.values, x=M.columns, y=M.index, colorscale=[[0, "#cde2fb"], [1, "#104281"]],
+                           text=[[f"{v:.1f}" for v in row] for row in M.values], texttemplate="%{text}",
+                           textfont=dict(size=16), colorbar=dict(title="ESS/s"), xgap=2, ygap=2,
+                           hovertemplate="%{y} · %{x}: %{z:.1f} ESS/s<extra></extra>"))
+fig.update_layout(height=320, yaxis=dict(autorange="reversed"), xaxis_title="E₁", yaxis_title="sampler")
+show(fig)
+```
+
+```{python}
+#| label: tbl-matrix
+#| tbl-cap: "Per combination, medians over spectra. Gradient evaluations per iteration measure sampler efficiency (trajectory length). µs per gradient is the sampling wall time divided by all gradient evaluations, so it includes sampler overhead. Setup is compilation: numba (pm.sample, nutpie) or JAX JIT (NumPyro)."
+g = V.groupby(["sampler", "E1"], sort=False)
+T = pd.DataFrame({
+    "sampling time (s)": g["time_sampling_s"].median(),
+    "setup (s)": g["time_setup_s"].median(),
+    "gradients / iteration": g["grads_per_iter"].median(),
+    "µs / gradient (incl. sampler)": g["time_per_grad_us"].median(),
+    "worst-param ESS": g["min_ess_bulk"].median(),
+    "worst-param ESS/s": g["min_ess_bulk_per_s"].median(),
+    "max R̂": g["max_rhat"].max(),
+    "divergences": g["divergences"].sum(min_count=1),
+}).reset_index()
+T["_s"] = T["sampler"].map({s: i for i, (_, s) in enumerate(SAMPLERS)})
+T["_e"] = T["E1"].map({e: i for i, (_, e) in enumerate(E1S)})
+T = T.sort_values(["_s", "_e"]).drop(columns=["_s", "_e"])
+show_table(fmt_table(T.rename(columns={"sampler": "Sampler", "E1": "E₁"}), 3))
+```
+
+```{python}
+#| label: fig-perspec
+#| fig-cap: "Worst-parameter ESS/s per spectrum. Color = sampler, marker = E₁. Log scale; hover for the spectrum."
+fig = go.Figure()
+for b_, slab in SAMPLERS:
+    for e_, elab in E1S:
+        d = V[(V["backend"] == b_) & (V["errmodel"] == e_)]
+        fig.add_trace(go.Scatter(
+            x=d["min_ess_bulk_per_s"], y=[f"{slab} · {elab}"] * len(d), mode="markers",
+            marker=dict(color=SCOLOR[b_], symbol=ESYM[e_], size=9, line=dict(color=SURFACE, width=1.5)),
+            name=f"{slab} · {elab}", showlegend=False, customdata=d["sample_id"],
+            hovertemplate="%{customdata}: %{x:.1f} ESS/s<extra>%{y}</extra>"))
+fig.update_layout(height=430, xaxis=dict(type="log", title="worst-parameter ESS / s"),
+                  yaxis=dict(categoryorder="array",
+                             categoryarray=[f"{s} · {e}" for _, s in SAMPLERS for _, e in E1S][::-1]),
+                  margin=dict(l=170))
+show(fig)
+```
+
+```{python}
+base = M.loc["pm.sample", "exact"]
+best_s, best_e = np.unravel_index(np.nanargmax(M.values), M.shape)
+best = M.values[best_s, best_e]
+best_lab = f"{M.index[best_s]} + {M.columns[best_e]} E₁"
+nut_fast = M.loc["nutpie", "fast"]
+gpi = V.groupby("sampler")["grads_per_iter"].median()
+upg = V.groupby(["sampler", "E1"])["time_per_grad_us"].median()
+```
+
+**What matters most.**
+
+* The best combination is **`{python} best_lab`** at
+  `{python} f"{best:.1f}"` ESS/s, `{python} f"{best/base:.1f}"`× the default
+  (`pm.sample` + exact E₁, `{python} f"{base:.1f}"` ESS/s).
+* **The sampler loop.** With the same compiled gradient, nutpie spends about
+  `{python} f"{upg['nutpie','exact']:.0f}"` µs per gradient against
+  `{python} f"{upg['pm.sample','exact']:.0f}"` µs for `pm.sample`, which runs
+  NUTS in Python. Their trajectory lengths also differ, at a median
+  `{python} f"{gpi['nutpie']:.1f}"` vs. `{python} f"{gpi['pm.sample']:.1f}"`
+  gradients per iteration.
+* **NumPyro on CPU** compiles the whole sampler with XLA, but its per-gradient
+  cost depends entirely on how fast the JAX log-density is. With JAX's own
+  `exp1` it is the slowest option by far. With the fast E₁ it is competitive.
+* **E₁ choice.** The fast E₁ helps every sampler and costs no accuracy.
+  Swamee–Ohija is never the fastest choice.
+
+## Do all combinations sample the same posterior?
+
+```{python}
+#| label: tbl-agree-py
+#| tbl-cap: "Largest standardized difference from Stan's posterior median ((median − Stan median) / Stan SD) over all spectra and parameters, and worst R̂, per combination."
+ref = P[(P["backend"] == "stan") & (P["errmodel"] == "iid")].set_index(["sample_id", "param"])
+rows = []
+for b_, slab in SAMPLERS:
+    for e_, elab in E1S:
+        d = P[(P["backend"] == b_) & (P["errmodel"] == e_)].set_index(["sample_id", "param"])
+        if d.empty:
+            continue
+        j = d.join(ref, rsuffix="_ref", how="inner")
+        z = (j["q50"] - j["q50_ref"]) / j["sd_ref"]
+        k = z.abs().idxmax()
+        rows.append({"Sampler": slab, "E₁": elab, "max |z|": z.abs().max(), "where": f"{k[0]} · {k[1]}",
+                     "median |z|": z.abs().median(), "max R̂": d["rhat"].max()})
+show_table(fmt_table(pd.DataFrame(rows), 3))
+```
+
+All combinations target the same posterior. Differences from Stan are at the
+Monte Carlo error level, except where the table shows otherwise.
+
+::: {.callout-note collapse="true"}
+## A pitfall found along the way: `get_jaxified_logp(negative_logp=False)`
+
+Despite its name, `pymc.sampling.jax.get_jaxified_logp(model, negative_logp=False)`
+returns the **potential** $-\log p$. This is what PyMC passes to NumPyro as
+`potential_fn`. Wrapping it as `potential_fn=lambda x: -logp(x)`, which the
+name invites, makes NumPyro target $1/p$, an improper density. Nothing errors,
+and the draws look like a plausible but wrong posterior. The first version of
+`python/fit_pymc.py` had this bug. It was caught because σ disagreed with
+the five reference backends.
+:::
+
+## Would a GPU (JAX) help?
+
+*This section is reasoning, not measurement: no GPU was available.*
+
+**For one spectrum: probably a small gain, or none.**
+
+* **Each gradient is tiny.** It is a few hundred thousand floating-point
+  operations on 2101 numbers, and NUTS needs each gradient before it can take
+  the next step. A GPU would be limited by the fixed cost of launching work
+  (about 5–10 µs per kernel), not by compute.
+  * With NumPyro or BlackJAX, the whole NUTS loop is compiled and stays on the
+    GPU, so there is no copying back and forth.
+  * Each gradient might then take tens of µs, against
+    `{python} f"{b['log-density + gradient','numba','fast']:.0f}"` µs on one CPU
+    core here.
+* **But PROSPECT needs float64.** The Stokes step subtracts nearly equal
+  numbers ($v_b^{2(N-1)} - 1$), so float32 is risky for thick leaves. Consumer
+  GPUs run float64 at 1/32 to 1/64 of their float32 speed. On an A100 or H100
+  a single leaf might run a few times faster; on a gaming card, probably no
+  faster.
+* **The E₁ problem gets worse.** JAX's `exp1` evaluates every series
+  iteration for every element, so the fast E₁ shown above becomes essential.
+* **Compilation** adds several seconds per model (see the setup column above).
+
+**For many spectra at once: this is where a GPU wins.**
+
+* **Batching many leaves.** Running thousands of leaves (and chains) side by
+  side with `jax.vmap`, e.g. all 340 ANGERS and LOPEX leaves, gives millions of
+  band evaluations per step. That keeps a GPU busy, so the cost per leaf could
+  drop by one to two orders of magnitude.
+* **The better error models are GPU-shaped.** The GP discrepancy and the
+  library-learned discrepancy recommended on [Error models](error-models.qmd)
+  are mostly matrix products and low-rank updates. The hierarchical library
+  model is one large model over many spectra.
+
+**Recommendation.**
+
+* **Single-leaf fits:** stay on the CPU with nutpie and the fast E₁, and
+  consider fitting at a coarser wavelength step. Cost scales directly with
+  the number of bands, and the residuals are correlated over tens of nm.
+* **Library-scale or hierarchical models:** move to JAX on a GPU, with the
+  fast E₁.

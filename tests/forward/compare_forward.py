@@ -14,7 +14,9 @@ OUT = ROOT / "tests/forward/out"
 TOL = {"same": 1e-9, "prosail": 1e-8}
 
 rows = []
-for e1 in ("exact", "approx"):
+for e1 in ("exact", "fast", "approx"):
+    if not (OUT / f"reference_{e1}.csv").exists():
+        continue
     ref = pd.read_csv(OUT / f"reference_{e1}.csv")
     for f in sorted(OUT.glob(f"*_{e1}.csv")):
         impl = f.stem.rsplit("_", 1)[0]
@@ -29,16 +31,21 @@ for e1 in ("exact", "approx"):
                          "max_abs_dR": dR, "max_abs_dT": dT, "tolerance": tol,
                          "pass": bool(max(dR, dT) <= tol)})
 
-# Approximate vs exact E1, from the reference implementation
+# Fast and approximate vs exact E1, from the reference implementation
 ex = pd.read_csv(OUT / "reference_exact.csv")
-ap = pd.read_csv(OUT / "reference_approx.csv")
-d = ap.merge(ex, on=["case", "wavelength"], suffixes=("_approx", "_exact"))
-for case, g in d.groupby("case", sort=False):
-    rows.append({"implementation": "reference (approx vs exact E1)", "e1": "approx-exact",
-                 "case": case,
-                 "max_abs_dR": (g["R_approx"] - g["R_exact"]).abs().max(),
-                 "max_abs_dT": (g["T_approx"] - g["T_exact"]).abs().max(),
-                 "tolerance": float("nan"), "pass": True})
+for mode in ("fast", "approx"):
+    f = OUT / f"reference_{mode}.csv"
+    if not f.exists():
+        continue
+    dm = pd.read_csv(f).merge(ex, on=["case", "wavelength"], suffixes=(f"_{mode}", "_exact"))
+    if mode == "approx":
+        d = dm
+    for case, g in dm.groupby("case", sort=False):
+        rows.append({"implementation": f"reference ({mode} vs exact E1)", "e1": f"{mode}-exact",
+                     "case": case,
+                     "max_abs_dR": (g[f"R_{mode}"] - g["R_exact"]).abs().max(),
+                     "max_abs_dT": (g[f"T_{mode}"] - g["T_exact"]).abs().max(),
+                     "tolerance": float("nan"), "pass": True})
 
 res = pd.DataFrame(rows)
 (ROOT / "results/summary").mkdir(parents=True, exist_ok=True)

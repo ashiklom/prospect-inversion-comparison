@@ -91,8 +91,14 @@ Rscript r/fit_stan.R --sample lopex_01 [--errmodel iid|hetero_ar1] [--e1 exact|a
 Rscript r/fit_nimble.R --sample lopex_01
 Rscript r/fit_bayestools.R --sample lopex_01
 julia --project=julia julia/fit_turing.jl --sample lopex_01
-python python/fit_pymc.py --sample lopex_01
+python python/fit_pymc.py --sample lopex_01 [--sampler pymc|nutpie|numpyro] [--e1 exact|fast|approx]
+python python/bench_logp.py     # log-density + gradient microbenchmarks (numba vs JAX)
 ```
+
+The PyMC model can be sampled by `pm.sample`, nutpie (Rust NUTS on the same
+numba-compiled gradient) or NumPyro (JAX), with exact, fast (NAG Chebyshev) or
+Swamee–Ohija E1. `make pyfits` runs the full 3 × 3 matrix; results are on the
+website's *Faster PyMC* page.
 
 The earlier exploratory DynamicHMC, Turing and Stan scripts are preserved on
 the `legacy-experiments` branch.

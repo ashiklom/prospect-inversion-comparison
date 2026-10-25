@@ -17,11 +17,18 @@ IID_FITS    := $(foreach b,$(BACKENDS),$(foreach s,$(SAMPLES),results/fits/$(b)/
 APPROX_FITS := $(foreach s,$(SAMPLES),results/fits/stan/iid-approx/$(s)/meta.json)
 # Error-model demonstration (Stan)
 HAR1_FITS   := $(foreach s,$(SAMPLES),results/fits/stan/hetero_ar1/$(s)/meta.json)
+# PyMC model x sampler (pm.sample | nutpie | NumPyro) x E1 (exact | fast | approx).
+# NumPyro + exact E1 is by far the slowest, so it is listed first.
+PYSAMPLERS := numpyro nutpie pymc
+PYE1       := exact fast approx
+pyname = $(if $(filter pymc,$(1)),pymc,pymc-$(1))
+pytag  = $(if $(filter exact,$(1)),iid,iid-$(1))
+PY_FITS := $(foreach s,$(PYSAMPLERS),$(foreach e,$(PYE1),$(foreach x,$(SAMPLES),results/fits/$(call pyname,$(s))/$(call pytag,$(e))/$(x)/meta.json)))
 
 LOG = results/logs/$(subst /,_,$(patsubst results/fits/%/meta.json,%,$@)).log
 
-.PHONY: all data forward fits summary site stan-compile clean-fits
-all: forward fits summary site
+.PHONY: all data forward fits pyfits bench summary site stan-compile clean-fits
+all: forward fits bench summary site
 
 data:
 	$(PY) scripts/prepare_data.py
@@ -35,7 +42,8 @@ forward:
 	$(PY) tests/forward/compare_forward.py
 
 # ---- Fits ------------------------------------------------------------------
-fits: $(IID_FITS) $(APPROX_FITS) $(HAR1_FITS)
+fits: $(IID_FITS) $(APPROX_FITS) $(HAR1_FITS) $(PY_FITS)
+pyfits: $(PY_FITS)
 
 # Compile Stan models once, before parallel fits use them
 stan/build/.compiled: stan/*.stan stan/expint.hpp
@@ -55,9 +63,12 @@ results/fits/stan/hetero_ar1/%/meta.json: data/inputs/prospectd/%.csv | stan/bui
 	@mkdir -p results/logs
 	$(RSCRIPT) r/fit_stan.R --sample $* --errmodel hetero_ar1 > $(LOG) 2>&1
 
-results/fits/pymc/iid/%/meta.json: data/inputs/prospectd/%.csv
+define PYRULE
+results/fits/$(call pyname,$(1))/$(call pytag,$(2))/%/meta.json: data/inputs/prospectd/%.csv
 	@mkdir -p results/logs
-	$(PY) python/fit_pymc.py --sample $* > $(LOG) 2>&1
+	$$(PY) python/fit_pymc.py --sample $$* --sampler $(1) --e1 $(2) > $$(LOG) 2>&1
+endef
+$(foreach s,$(PYSAMPLERS),$(foreach e,$(PYE1),$(eval $(call PYRULE,$(s),$(e)))))
 
 results/fits/turing/iid/%/meta.json: data/inputs/prospectd/%.csv
 	@mkdir -p results/logs
@@ -72,6 +83,9 @@ results/fits/bayestools/iid/%/meta.json: data/inputs/prospectd/%.csv
 	$(RSCRIPT) r/fit_bayestools.R --sample $* > $(LOG) 2>&1
 
 # ---- Summaries and website ---------------------------------------------------
+bench:
+	$(PY) python/bench_logp.py
+
 summary:
 	$(PY) python/summarize.py
 

@@ -131,7 +131,25 @@ th, tr_h = cov_T("hetero_ar1"), cov_trait("hetero_ar1")
    (`{python} f"{ti[1]:.3f}"` → `{python} f"{th[1]:.3f}"`). Its AR coefficient
    runs into φ → 1, though, which points to smoother GP or library-learned
    discrepancy models as the next step. See [Error models](error-models.qmd).
-5. **A bug fix along the way.** The PROSPECT-D `t21` in `rrtm` used the wrong
+```{python}
+Fa = read("fits.csv", main=False)
+mv = Fa[Fa["backend"].isin(["pymc", "pymc-nutpie", "pymc-numpyro"]) & Fa["errmodel"].isin(["iid", "iid-fast", "iid-approx"])]
+mm = mv.groupby(["backend", "errmodel"])["min_ess_bulk_per_s"].median()
+py_base = mm.get(("pymc", "iid"), np.nan)
+py_best_key = mm.idxmax() if len(mm) else ("pymc", "iid")
+py_best = mm.max() if len(mm) else np.nan
+lab_s = {"pymc": "pm.sample", "pymc-nutpie": "nutpie", "pymc-numpyro": "NumPyro"}
+lab_e = {"iid": "exact", "iid-fast": "fast", "iid-approx": "Swamee–Ohija"}
+py_best_lab = f"{lab_s[py_best_key[0]]} + {lab_e[py_best_key[1]]} E₁"
+```
+
+5. **PyMC can go faster without changing the model.** Replacing the default
+   sampler and Cephes $E_1$ with `{python} py_best_lab` raises the median ESS/s
+   from `{python} f"{py_base:.1f}"` to `{python} f"{py_best:.1f}"`
+   (`{python} f"{py_best/py_base:.1f}"`×). The fast $E_1$ (NAG Chebyshev, ≤ 2×10⁻¹²
+   error) helps every sampler. JAX's built-in `exp1` is very slow on CPU, and
+   Swamee–Ohija is never the fastest choice. See [Faster PyMC](samplers.qmd).
+6. **A bug fix along the way.** The PROSPECT-D `t21` in `rrtm` used the wrong
    refractive index; fixed in [ashiklom/rrtm#10](https://github.com/ashiklom/rrtm/pull/10).
 
 ## Reproducing

@@ -23,6 +23,8 @@ website:
         text: Spectra & transmittance
       - href: backends.qmd
         text: Backends
+      - href: samplers.qmd
+        text: Faster PyMC
       - href: error-models.qmd
         text: Error models
     right:

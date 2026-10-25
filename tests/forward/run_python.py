@@ -18,27 +18,35 @@ outdir = ROOT / "tests/forward/out"
 outdir.mkdir(exist_ok=True)
 model = Prospect("prospectd")
 
-# PyTensor compiled function
+import jax  # noqa: E402
+
+jax.config.update("jax_enable_x64", True)
+
+# PyTensor compiled functions: default (numba) backend and JAX backend
 N_ = pt.scalar("N")
 C_ = pt.vector("C")
+E1_MODES = ("exact", "fast", "approx")
 fns = {}
-for e1 in ("exact", "approx"):
+for e1 in E1_MODES:
     R_, T_ = prospect_pt.prospect(N_, C_, model.K, model.talf, model.t12, model.t21,
                                   e1=e1, want_t=True)
-    fns[e1] = pytensor.function([N_, C_], [R_, T_])
+    fns[("pytensor", e1)] = pytensor.function([N_, C_], [R_, T_])
+    fns[("pytensor-jax", e1)] = pytensor.function([N_, C_], [R_, T_], mode="JAX")
 
 def frame(rows):
     return pd.concat(rows, ignore_index=True)
 
-for e1 in ("exact", "approx"):
-    ref, ptr = [], []
+for e1 in E1_MODES:
+    out = {"reference": [], "pytensor": [], "pytensor-jax": []}
     for c in cases["cases"]:
         R, T = model(c["N"], c["C"], e1=e1)
-        ref.append(pd.DataFrame({"case": c["name"], "wavelength": model.wavelength, "R": R, "T": T}))
-        R, T = fns[e1](c["N"], np.asarray(c["C"], dtype=float))
-        ptr.append(pd.DataFrame({"case": c["name"], "wavelength": model.wavelength, "R": R, "T": T}))
-    frame(ref).to_csv(outdir / f"reference_{e1}.csv", index=False, float_format="%.17g")
-    frame(ptr).to_csv(outdir / f"pytensor_{e1}.csv", index=False, float_format="%.17g")
+        out["reference"].append(pd.DataFrame({"case": c["name"], "wavelength": model.wavelength, "R": R, "T": T}))
+        for impl in ("pytensor", "pytensor-jax"):
+            R, T = fns[(impl, e1)](c["N"], np.asarray(c["C"], dtype=float))
+            out[impl].append(pd.DataFrame({"case": c["name"], "wavelength": model.wavelength,
+                                           "R": np.asarray(R), "T": np.asarray(T)}))
+    for impl, rows in out.items():
+        frame(rows).to_csv(outdir / f"{impl}_{e1}.csv", index=False, float_format="%.17g")
 
 # Independent implementation: prosail (exact E1 only)
 import prosail  # noqa: E402

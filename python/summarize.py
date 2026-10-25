@@ -96,6 +96,9 @@ def main():
             "time_setup_s": meta.get("time_setup_s"), "time_sampling_s": t_samp,
             # NA for gradient-free samplers (older runs wrote {} for NULL)
             "divergences": meta["divergences"] if isinstance(meta.get("divergences"), (int, float)) else None,
+            "sampler": meta.get("sampler"),
+            "n_grad_evals": meta.get("n_grad_evals"),
+            "time_per_grad_us": meta.get("time_per_grad_us"),
             "mean_leapfrog": meta.get("mean_leapfrog"),
             "median_stepsize": meta.get("median_stepsize"),
             "max_rhat": max(rhats[p] for p in params),
@@ -105,6 +108,11 @@ def main():
             "min_ess_bulk_per_s": min(ess_b[p] for p in params) / t_samp,
             "median_ess_bulk_per_s": float(np.median([ess_b[p] for p in core])) / t_samp,
         })
+
+        # PyMC sampler/E1 variants are only used for efficiency comparisons
+        if backend.startswith("pymc-") or (backend == "pymc" and errtag != "iid"):
+            print(f"summarized {backend}/{errtag}/{sample} (no PPC)")
+            continue
 
         # Posterior predictive (reflectance, fitted) and held-out transmittance
         rng = np.random.default_rng(0)
